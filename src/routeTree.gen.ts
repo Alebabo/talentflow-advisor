@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/teams': typeof TeamsRoute
+  '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/teams': typeof TeamsRoute
+  '/workspace': typeof WorkspaceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/teams': typeof TeamsRoute
+  '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/applications' | '/jobs' | '/teams'
+  fullPaths: '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/applications' | '/jobs' | '/teams'
-  id: '__root__' | '/' | '/applications' | '/jobs' | '/teams'
+  to: '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
+  id: '__root__' | '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   ApplicationsRoute: typeof ApplicationsRoute
   JobsRoute: typeof JobsRoute
   TeamsRoute: typeof TeamsRoute
+  WorkspaceRoute: typeof WorkspaceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/teams': {
       id: '/teams'
       path: '/teams'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApplicationsRoute: ApplicationsRoute,
   JobsRoute: JobsRoute,
   TeamsRoute: TeamsRoute,
+  WorkspaceRoute: WorkspaceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
