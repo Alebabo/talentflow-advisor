@@ -95,12 +95,13 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-border bg-card/40 px-6 py-6 md:px-10">
+    <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between bg-card px-6 py-7 md:px-10">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground max-w-2xl">{description}</p>}
+        <h1 className="text-[28px] font-semibold text-foreground tracking-tight leading-tight">{title}</h1>
+        {description && <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-spectral opacity-80" />
     </div>
   );
 }
