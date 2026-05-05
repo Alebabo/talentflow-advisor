@@ -177,8 +177,36 @@
     border-color: var(--color-border);
   }
 
+  html, body {
+    font-family: "Inter", "Alaska", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
+  h1, h2, h3, h4 {
+    font-family: "Inter Tight", "Inter", "Alaska", system-ui, sans-serif;
+    letter-spacing: -0.015em;
+  }
 }
+
+@layer utilities {
+  .bg-spectral { background-image: var(--gradient-spectral); }
+  .bg-spectral-soft { background-image: var(--gradient-spectral-soft); }
+  .bg-night { background-image: var(--gradient-night); }
+  .text-spectral {
+    background-image: var(--gradient-spectral);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .border-spectral {
+    border-image: var(--gradient-spectral) 1;
+  }
+  .ring-glow { box-shadow: var(--shadow-glow); }
+}
+
