@@ -38,14 +38,29 @@ function Index() {
       />
 
       <div className="px-6 md:px-10 py-8 space-y-8">
+        <div className="rounded-2xl bg-spectral-soft border border-border p-6 md:p-8 relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral" />
+          <div className="max-w-2xl">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1f004c]/70">metafinanz · HTM</div>
+            <h2 className="mt-2 text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
+              Wir bringen <span className="text-spectral">Zukunftsfähigkeit</span> ans Licht.
+            </h2>
+            <p className="mt-2 text-sm text-foreground/70 max-w-xl">
+              Strukturierte, AGG-konforme Interviewvorbereitung – vier Kontextquellen,
+              ein Leitfaden, klare Signale.
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <div key={s.label} className="relative rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)] overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral opacity-70" />
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{s.label}</span>
-                  <Icon className="h-4 w-4 text-primary" />
+                  <Icon className="h-4 w-4 text-[#854bff]" />
                 </div>
                 <div className="mt-3 text-2xl font-semibold text-foreground">{s.value}</div>
               </div>
