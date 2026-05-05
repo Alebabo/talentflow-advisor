@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground relative border-r border-sidebar-border">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground relative border-r border-sidebar-border sticky top-0 h-screen self-start">
         {/* spectral accent line */}
         <div className="absolute left-0 top-0 h-full w-[3px] bg-spectral" />
 

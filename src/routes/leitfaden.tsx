@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useRef } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 import {
   Download,
   ExternalLink,
@@ -11,7 +14,13 @@ import {
   CheckCircle2,
   XCircle,
   AlertOctagon,
+  ChevronDown,
+  Upload,
+  FileCode2,
+  Trash2,
 } from "lucide-react";
+
+type SkillDoc = { name: string; size: number; uploadedAt: string; content: string };
 
 export const Route = createFileRoute("/leitfaden")({
   head: () => ({
@@ -93,6 +102,143 @@ const badStyle = [
   "Interviews sind Kennenlernen, keine Prüfungen.",
 ];
 
+function Section({
+  title,
+  defaultOpen = true,
+  meta,
+  children,
+  className = "",
+}: {
+  title: React.ReactNode;
+  defaultOpen?: boolean;
+  meta?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className={`rounded-xl border border-border bg-card ${className}`}>
+      <CollapsibleTrigger className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-muted/40 transition-colors">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {meta}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-6 pb-6 pt-1">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SkillUpload() {
+  const [skills, setSkills] = useState<SkillDoc[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("tf.skillDocs") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const persist = (next: SkillDoc[]) => {
+    setSkills(next);
+    localStorage.setItem("tf.skillDocs", JSON.stringify(next));
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files) return;
+    const accepted: SkillDoc[] = [];
+    for (const f of Array.from(files)) {
+      if (!f.name.toLowerCase().endsWith(".md")) {
+        toast.error(`${f.name}: nur .md Dateien erlaubt`);
+        continue;
+      }
+      if (f.size > 500_000) {
+        toast.error(`${f.name}: max. 500 KB`);
+        continue;
+      }
+      const content = await f.text();
+      accepted.push({ name: f.name, size: f.size, uploadedAt: new Date().toISOString(), content });
+    }
+    if (accepted.length) {
+      persist([...skills, ...accepted]);
+      toast.success(`${accepted.length} Skill-Dokument(e) hochgeladen`);
+    }
+  };
+
+  return (
+    <Section
+      title={
+        <span className="flex items-center gap-2">
+          <FileCode2 className="h-4 w-4 text-[#854bff]" />
+          Skill-Dokumente für die Fragen-Generierung
+        </span>
+      }
+      meta={<StatusPill tone="primary">{skills.length} aktiv</StatusPill>}
+      defaultOpen
+    >
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Lade Markdown-Dateien (.md) mit rollenspezifischen Skills, Tech-Stacks oder Bewertungskriterien hoch.
+        Diese werden im Interview Workspace bei der KI-gestützten Fragen-Generierung als Kontext mitverwendet.
+      </p>
+
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleFiles(e.dataTransfer.files);
+        }}
+        className="mt-4 rounded-lg border border-dashed border-border bg-background/40 p-6 text-center"
+      >
+        <Upload className="h-5 w-5 text-muted-foreground mx-auto" />
+        <p className="mt-2 text-sm text-foreground">Markdown hierher ziehen oder auswählen</p>
+        <p className="text-xs text-muted-foreground">Nur .md · max. 500 KB pro Datei</p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".md,text/markdown"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
+        />
+        <Button size="sm" className="mt-3" onClick={() => inputRef.current?.click()}>
+          <Upload className="h-4 w-4 mr-2" /> Datei auswählen
+        </Button>
+      </div>
+
+      {skills.length > 0 && (
+        <ul className="mt-4 divide-y divide-border rounded-lg border border-border">
+          {skills.map((s, i) => (
+            <li key={s.name + i} className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileCode2 className="h-4 w-4 text-[#854bff] shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{s.name}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {(s.size / 1024).toFixed(1)} KB · {new Date(s.uploadedAt).toLocaleDateString("de-DE")}
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => persist(skills.filter((_, idx) => idx !== i))}
+                aria-label="Entfernen"
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
 function LeitfadenPage() {
   return (
     <AppShell>
@@ -146,13 +292,15 @@ function LeitfadenPage() {
           })}
         </div>
 
+        {/* Skill upload for question generation */}
+        <SkillUpload />
+
         {/* Flow */}
-        <section className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-[var(--shadow-soft)]">
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h3 className="text-base font-semibold text-foreground">Empfohlener Ablauf</h3>
-            <StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>
-          </div>
-          <ol className="mt-5 grid gap-3 md:grid-cols-5">
+        <Section
+          title="Empfohlener Ablauf"
+          meta={<StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>}
+        >
+          <ol className="grid gap-3 md:grid-cols-5">
             {flow.map((f) => (
               <li key={f.step} className="rounded-lg border border-border p-4 bg-background/40 relative">
                 <div className="text-[11px] font-semibold text-[#854bff]">{f.step}</div>
@@ -162,15 +310,18 @@ function LeitfadenPage() {
               </li>
             ))}
           </ol>
-        </section>
+        </Section>
 
         {/* Dos */}
-        <section className="rounded-xl border border-border bg-card p-6 md:p-8">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
-            <h3 className="text-base font-semibold text-foreground">Dos</h3>
-          </div>
-          <ul className="mt-4 grid md:grid-cols-2 gap-x-8 gap-y-2.5">
+        <Section
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
+              Dos
+            </span>
+          }
+        >
+          <ul className="grid md:grid-cols-2 gap-x-8 gap-y-2.5">
             {dos.map((d) => (
               <li key={d} className="flex gap-2 text-sm text-foreground">
                 <span className="text-[#64e100] mt-0.5">›</span>
@@ -178,13 +329,12 @@ function LeitfadenPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
 
         {/* Question banks */}
         <div className="grid lg:grid-cols-2 gap-6">
-          <section className="rounded-xl border border-border bg-card p-6">
-            <h3 className="text-sm font-semibold text-foreground">Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz</h3>
-            <ul className="mt-4 space-y-2.5">
+          <Section title="Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz" defaultOpen={false}>
+            <ul className="space-y-2.5">
               {factualQuestions.map((q) => (
                 <li key={q} className="text-sm text-foreground flex gap-2">
                   <span className="text-muted-foreground">·</span>
@@ -192,10 +342,9 @@ function LeitfadenPage() {
                 </li>
               ))}
             </ul>
-          </section>
-          <section className="rounded-xl border border-border bg-card p-6">
-            <h3 className="text-sm font-semibold text-foreground">Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit</h3>
-            <ul className="mt-4 space-y-2.5">
+          </Section>
+          <Section title="Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit" defaultOpen={false}>
+            <ul className="space-y-2.5">
               {cultureQuestions.map((q) => (
                 <li key={q} className="text-sm text-foreground flex gap-2">
                   <span className="text-muted-foreground">·</span>
@@ -203,54 +352,63 @@ function LeitfadenPage() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
         </div>
 
         {/* Don'ts */}
         <div className="grid lg:grid-cols-2 gap-6">
-          <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-destructive" />
-              <h3 className="text-sm font-semibold text-foreground">Rechtlich nicht zulässig – verboten</h3>
-            </div>
-            <ul className="mt-3 space-y-2.5 text-sm text-foreground">
+          <Section
+            className="border-destructive/30 bg-destructive/5"
+            defaultOpen={false}
+            title={
+              <span className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-destructive" />
+                Rechtlich nicht zulässig – verboten
+              </span>
+            }
+          >
+            <ul className="space-y-2.5 text-sm text-foreground">
               {forbidden.map((d) => (
                 <li key={d} className="flex gap-2"><span className="text-destructive mt-0.5">×</span><span>{d}</span></li>
               ))}
             </ul>
-          </section>
-          <section className="rounded-xl border border-warning/40 bg-warning/5 p-6">
-            <div className="flex items-center gap-2">
-              <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
-              <h3 className="text-sm font-semibold text-foreground">Schlechter Stil – unangebracht</h3>
-            </div>
-            <ul className="mt-3 space-y-2.5 text-sm text-foreground">
+          </Section>
+          <Section
+            className="border-warning/40 bg-warning/5"
+            defaultOpen={false}
+            title={
+              <span className="flex items-center gap-2">
+                <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
+                Schlechter Stil – unangebracht
+              </span>
+            }
+          >
+            <ul className="space-y-2.5 text-sm text-foreground">
               {badStyle.map((d) => (
                 <li key={d} className="flex gap-2"><span className="text-[#8a6a00] mt-0.5">!</span><span>{d}</span></li>
               ))}
             </ul>
-          </section>
+          </Section>
         </div>
 
         {/* PDF embed */}
-        <section className="rounded-xl border border-border bg-card overflow-hidden">
-          <header className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Original-PDF</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Vollständiger Leitfaden zum Lesen oder Download</p>
-            </div>
-            <Button variant="outline" size="sm" asChild>
+        <Section
+          defaultOpen={false}
+          title="Original-PDF"
+          meta={
+            <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
               <a href="/interview-leitfaden.pdf" download>
                 <Download className="h-4 w-4 mr-2" /> Download
               </a>
             </Button>
-          </header>
+          }
+        >
           <iframe
             src="/interview-leitfaden.pdf"
             title="Interview-Leitfaden PDF"
-            className="w-full h-[720px] bg-muted"
+            className="w-full h-[720px] bg-muted rounded-lg border border-border"
           />
-        </section>
+        </Section>
       </div>
     </AppShell>
   );
