@@ -23,17 +23,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground relative overflow-hidden">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground relative border-r border-sidebar-border">
         {/* spectral accent line */}
         <div className="absolute left-0 top-0 h-full w-[3px] bg-spectral" />
 
-        <div className="flex h-16 items-center gap-3 px-5 border-b border-sidebar-border">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-spectral text-[#1f004c] font-bold text-sm shadow-[var(--shadow-glow)]">
-            tf
-          </div>
+        <div className="flex h-20 items-center gap-3 px-5 border-b border-sidebar-border">
+          <img
+            src={metafinanzLogo}
+            alt="metafinanz"
+            className="h-11 w-11 rounded-full object-contain"
+          />
           <div>
-            <div className="text-sm font-semibold leading-none tracking-tight">TalentFlow</div>
-            <div className="text-[11px] text-sidebar-foreground/60 mt-1">Recruiting Workspace</div>
+            <div className="text-sm font-semibold leading-none tracking-tight text-foreground">TalentFlow</div>
+            <div className="text-[11px] text-muted-foreground mt-1.5">by metafinanz</div>
           </div>
         </div>
 
@@ -48,24 +50,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-accent text-sidebar-foreground font-medium"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
-                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] bg-spectral rounded-r" />}
-                <Icon className={cn("h-4 w-4", item.highlight && "text-[#00f0c5]")} />
+                {active && <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-6 w-[3px] bg-spectral rounded-r" />}
+                <Icon className={cn("h-4 w-4", active ? "text-[#854bff]" : "text-current/70", item.highlight && !active && "text-[#854bff]")} />
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="m-3 rounded-lg border border-sidebar-border bg-sidebar-accent p-3">
-          <div className="flex items-center gap-2 text-xs font-medium">
-            <ShieldCheck className="h-4 w-4 text-[#64e100]" />
+        <div className="m-3 rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3 relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral" />
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+            <ShieldCheck className="h-4 w-4 text-[#0a8e76]" />
             AGG-Compliance aktiv
           </div>
-          <p className="mt-1 text-[11px] text-sidebar-foreground/60 leading-relaxed">
+          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
             Alle generierten Fragen werden auf rechtlich kritische Inhalte geprüft.
           </p>
         </div>
@@ -75,8 +78,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             AV
           </div>
           <div className="text-xs">
-            <div className="font-medium">Anna Vollmer</div>
-            <div className="text-sidebar-foreground/60">Hiring Manager</div>
+            <div className="font-medium text-foreground">Anna Vollmer</div>
+            <div className="text-muted-foreground">Hiring Manager</div>
           </div>
         </div>
       </aside>
