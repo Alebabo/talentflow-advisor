@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useRef } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 import {
   Download,
   ExternalLink,
@@ -11,7 +14,13 @@ import {
   CheckCircle2,
   XCircle,
   AlertOctagon,
+  ChevronDown,
+  Upload,
+  FileCode2,
+  Trash2,
 } from "lucide-react";
+
+type SkillDoc = { name: string; size: number; uploadedAt: string; content: string };
 
 export const Route = createFileRoute("/leitfaden")({
   head: () => ({
