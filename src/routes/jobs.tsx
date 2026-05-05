@@ -21,7 +21,7 @@ function JobsPage() {
     <AppShell>
       <PageHeader
         title="Jobs"
-        description="Bibliothek aller Jobbeschreibungen. Bewerbungen werden separat verwaltet und erst im Interview Workspace zusammengeführt."
+        
         actions={
           <>
             <Button variant="outline">
