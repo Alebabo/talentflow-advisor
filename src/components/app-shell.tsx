@@ -10,12 +10,15 @@ import {
 import { cn } from "@/lib/utils";
 import metafinanzLogo from "@/assets/metafinanz-logo.jpg";
 
+import { BookOpen } from "lucide-react";
+
 const nav = [
   { to: "/", label: "Übersicht", icon: LayoutGrid },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/applications", label: "Applications", icon: FileText },
   { to: "/teams", label: "Teams", icon: Users },
   { to: "/workspace", label: "Interview Workspace", icon: Sparkles, highlight: true },
+  { to: "/leitfaden", label: "Interview-Leitfaden", icon: BookOpen },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
