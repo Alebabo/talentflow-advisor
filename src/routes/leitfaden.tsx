@@ -4,6 +4,7 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Download,
@@ -295,101 +296,113 @@ function LeitfadenPage() {
         {/* Skill upload for question generation */}
         <SkillUpload />
 
-        {/* Flow */}
-        <Section
-          title="Empfohlener Ablauf"
-          meta={<StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>}
-        >
-          <ol className="grid gap-3 md:grid-cols-5">
-            {flow.map((f) => (
-              <li key={f.step} className="rounded-lg border border-border p-4 bg-background/40 relative">
-                <div className="text-[11px] font-semibold text-[#854bff]">{f.step}</div>
-                <div className="mt-1 text-sm font-semibold text-foreground leading-snug">{f.title}</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">{f.time}</div>
-                <p className="mt-2 text-xs text-foreground/80 leading-relaxed">{f.text}</p>
-              </li>
-            ))}
-          </ol>
-        </Section>
+        {/* Tabbed sections */}
+        <Tabs defaultValue="flow" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsTrigger value="flow">Interview-Ablauf</TabsTrigger>
+            <TabsTrigger value="prep">Vorbereitung</TabsTrigger>
+            <TabsTrigger value="signals">Signale & Fragen</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance</TabsTrigger>
+          </TabsList>
 
-        {/* Dos */}
-        <Section
-          title={
-            <span className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
-              Dos
-            </span>
-          }
-        >
-          <ul className="grid md:grid-cols-2 gap-x-8 gap-y-2.5">
-            {dos.map((d) => (
-              <li key={d} className="flex gap-2 text-sm text-foreground">
-                <span className="text-[#64e100] mt-0.5">›</span>
-                <span>{d}</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
+          <TabsContent value="flow" className="mt-4 space-y-6">
+            <Section
+              title="Empfohlener Ablauf"
+              meta={<StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>}
+            >
+              <ol className="grid gap-3 md:grid-cols-5">
+                {flow.map((f) => (
+                  <li key={f.step} className="rounded-lg border border-border p-4 bg-background/40 relative">
+                    <div className="text-[11px] font-semibold text-[#854bff]">{f.step}</div>
+                    <div className="mt-1 text-sm font-semibold text-foreground leading-snug">{f.title}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">{f.time}</div>
+                    <p className="mt-2 text-xs text-foreground/80 leading-relaxed">{f.text}</p>
+                  </li>
+                ))}
+              </ol>
+            </Section>
+          </TabsContent>
 
-        {/* Question banks */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Section title="Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz" defaultOpen={false}>
-            <ul className="space-y-2.5">
-              {factualQuestions.map((q) => (
-                <li key={q} className="text-sm text-foreground flex gap-2">
-                  <span className="text-muted-foreground">·</span>
-                  <span>{q}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-          <Section title="Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit" defaultOpen={false}>
-            <ul className="space-y-2.5">
-              {cultureQuestions.map((q) => (
-                <li key={q} className="text-sm text-foreground flex gap-2">
-                  <span className="text-muted-foreground">·</span>
-                  <span>{q}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        </div>
+          <TabsContent value="prep" className="mt-4 space-y-6">
+            <Section
+              title={
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
+                  Dos – Vorbereitung & Haltung
+                </span>
+              }
+            >
+              <ul className="grid md:grid-cols-2 gap-x-8 gap-y-2.5">
+                {dos.map((d) => (
+                  <li key={d} className="flex gap-2 text-sm text-foreground">
+                    <span className="text-[#64e100] mt-0.5">›</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          </TabsContent>
 
-        {/* Don'ts */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Section
-            className="border-destructive/30 bg-destructive/5"
-            defaultOpen={false}
-            title={
-              <span className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-destructive" />
-                Rechtlich nicht zulässig – verboten
-              </span>
-            }
-          >
-            <ul className="space-y-2.5 text-sm text-foreground">
-              {forbidden.map((d) => (
-                <li key={d} className="flex gap-2"><span className="text-destructive mt-0.5">×</span><span>{d}</span></li>
-              ))}
-            </ul>
-          </Section>
-          <Section
-            className="border-warning/40 bg-warning/5"
-            defaultOpen={false}
-            title={
-              <span className="flex items-center gap-2">
-                <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
-                Schlechter Stil – unangebracht
-              </span>
-            }
-          >
-            <ul className="space-y-2.5 text-sm text-foreground">
-              {badStyle.map((d) => (
-                <li key={d} className="flex gap-2"><span className="text-[#8a6a00] mt-0.5">!</span><span>{d}</span></li>
-              ))}
-            </ul>
-          </Section>
-        </div>
+          <TabsContent value="signals" className="mt-4 space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Section title="Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz">
+                <ul className="space-y-2.5">
+                  {factualQuestions.map((q) => (
+                    <li key={q} className="text-sm text-foreground flex gap-2">
+                      <span className="text-muted-foreground">·</span>
+                      <span>{q}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+              <Section title="Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit">
+                <ul className="space-y-2.5">
+                  {cultureQuestions.map((q) => (
+                    <li key={q} className="text-sm text-foreground flex gap-2">
+                      <span className="text-muted-foreground">·</span>
+                      <span>{q}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="compliance" className="mt-4 space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Section
+                className="border-destructive/30 bg-destructive/5"
+                title={
+                  <span className="flex items-center gap-2">
+                    <XCircle className="h-4 w-4 text-destructive" />
+                    Rechtlich nicht zulässig – verboten
+                  </span>
+                }
+              >
+                <ul className="space-y-2.5 text-sm text-foreground">
+                  {forbidden.map((d) => (
+                    <li key={d} className="flex gap-2"><span className="text-destructive mt-0.5">×</span><span>{d}</span></li>
+                  ))}
+                </ul>
+              </Section>
+              <Section
+                className="border-warning/40 bg-warning/5"
+                title={
+                  <span className="flex items-center gap-2">
+                    <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
+                    Schlechter Stil – unangebracht
+                  </span>
+                }
+              >
+                <ul className="space-y-2.5 text-sm text-foreground">
+                  {badStyle.map((d) => (
+                    <li key={d} className="flex gap-2"><span className="text-[#8a6a00] mt-0.5">!</span><span>{d}</span></li>
+                  ))}
+                </ul>
+              </Section>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* PDF embed */}
         <Section
