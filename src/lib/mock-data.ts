@@ -40,7 +40,8 @@ export const teams: Team[] = [
     description:
       "Verantwortlich für die zentrale Datenplattform der HTM. Entwickelt skalierbare Data Pipelines und Analytics-Produkte für interne Fachbereiche.",
     values: ["Verlässlichkeit", "Pragmatismus", "Wissensaustausch", "Eigenverantwortung"],
-    interviewStyle: "Strukturiert, evidenzbasiert, kollaborativ. Fokus auf konkrete Beispiele statt hypothetischer Antworten.",
+    interviewStyle:
+      "Strukturiert, evidenzbasiert, kollaborativ. Fokus auf konkrete Beispiele statt hypothetischer Antworten.",
     focusAreas: ["Cloud Data Platforms", "DataOps", "Stakeholder Management", "Architektur"],
     members: 14,
   },
@@ -59,8 +60,7 @@ export const teams: Team[] = [
     id: "t3",
     name: "Cloud Foundations",
     businessUnit: "Metafinanz – HTM",
-    description:
-      "Baut interne Cloud-Plattformen und Self-Service Tooling für Entwicklungsteams.",
+    description: "Baut interne Cloud-Plattformen und Self-Service Tooling für Entwicklungsteams.",
     values: ["Automation first", "Transparenz", "Lernkultur"],
     interviewStyle: "Hands-on, Whiteboard, Pair-Diskussion über reale Szenarien.",
     focusAreas: ["Azure", "Terraform", "Plattform-Engineering", "Developer Experience"],
@@ -232,53 +232,61 @@ export type Question = {
 export const top10Questions: Question[] = [
   {
     id: "q1",
-    question: "Erzähl uns von einer Data Platform, die du maßgeblich mitgestaltet hast – welche Architekturentscheidung würdest du heute anders treffen?",
+    question:
+      "Erzähl uns von einer Data Platform, die du maßgeblich mitgestaltet hast – welche Architekturentscheidung würdest du heute anders treffen?",
     why: "Prüft Reflexionsfähigkeit und Architektur-Denken jenseits der reinen Toolerfahrung.",
     reference: "CV: Tech Lead Data Platform (2022–2024)",
     scenarioTag: "Deep Dive",
   },
   {
     id: "q2",
-    question: "Wie hast du in deinem letzten Projekt mit nicht-technischen Stakeholdern Anforderungen geschärft?",
+    question:
+      "Wie hast du in deinem letzten Projekt mit nicht-technischen Stakeholdern Anforderungen geschärft?",
     why: "Adressiert Stage-1-Hypothese: Stakeholder-Kommunikation als Stärke.",
     reference: "Stage 1: 'wirkt sehr kommunikativ'",
     scenarioTag: "Stakeholder",
   },
   {
     id: "q3",
-    question: "Beschreibe eine Situation, in der ihr im Team über die richtige technische Richtung uneinig wart. Wie wurde die Entscheidung getroffen?",
+    question:
+      "Beschreibe eine Situation, in der ihr im Team über die richtige technische Richtung uneinig wart. Wie wurde die Entscheidung getroffen?",
     why: "Signalfrage zu Konfliktverhalten und Entscheidungsstil.",
     reference: "Team: Wert 'Eigenverantwortung'",
     scenarioTag: "Konflikt",
   },
   {
     id: "q4",
-    question: "Was bedeutet für dich 'verlässliche Daten' in einem regulierten Umfeld wie der Versicherungsbranche?",
+    question:
+      "Was bedeutet für dich 'verlässliche Daten' in einem regulierten Umfeld wie der Versicherungsbranche?",
     why: "Verbindet Domänenkontext mit fachlicher Haltung.",
     reference: "Job: Senior Data Engineer (regulatorischer Kontext)",
   },
   {
     id: "q5",
-    question: "Wie gehst du vor, wenn du in einem bestehenden Team mit etablierten Mustern startest, die du als verbesserungswürdig empfindest?",
+    question:
+      "Wie gehst du vor, wenn du in einem bestehenden Team mit etablierten Mustern startest, die du als verbesserungswürdig empfindest?",
     why: "Soft-Skill-Signal: Demut, Veränderungskompetenz, Geduld.",
     reference: "Team: Interviewstil 'kollaborativ'",
     scenarioTag: "Vertrauensaufbau",
   },
   {
     id: "q6",
-    question: "Wenn du an deinen letzten Architektur-Review denkst – welches Feedback war für dich besonders wertvoll?",
+    question:
+      "Wenn du an deinen letzten Architektur-Review denkst – welches Feedback war für dich besonders wertvoll?",
     why: "Zeigt Lernhaltung und Umgang mit Kritik.",
     reference: "CV: 'Mentoring' als Skill ausgewiesen",
   },
   {
     id: "q7",
-    question: "Wie misst du den Erfolg einer internen Datenplattform aus Sicht der nutzenden Teams?",
+    question:
+      "Wie misst du den Erfolg einer internen Datenplattform aus Sicht der nutzenden Teams?",
     why: "Produktdenken statt reines Tooling-Mindset.",
     reference: "Job: 'enge Zusammenarbeit mit Fachteams'",
   },
   {
     id: "q8",
-    question: "Beschreibe eine Situation mit unvollständigen Anforderungen – wie bist du damit umgegangen?",
+    question:
+      "Beschreibe eine Situation mit unvollständigen Anforderungen – wie bist du damit umgegangen?",
     why: "Test auf Umgang mit Ambiguität.",
     reference: "Stage 1: 'Hypothese – Ambiguitätstoleranz prüfen'",
     scenarioTag: "Ambiguität",
@@ -291,7 +299,8 @@ export const top10Questions: Question[] = [
   },
   {
     id: "q10",
-    question: "Was müsste in den ersten 6 Monaten passieren, damit du sagst: das war die richtige Entscheidung?",
+    question:
+      "Was müsste in den ersten 6 Monaten passieren, damit du sagst: das war die richtige Entscheidung?",
     why: "Erwartungsmanagement und Selbstbild für die Rolle.",
     reference: "Workspace-Leitfrage: 'Passt die Person zu Team und Unternehmen?'",
   },
@@ -362,8 +371,16 @@ export const openRisks = [
 ];
 
 export const interviewPanel = [
-  { role: "Hiring Manager", name: "Dr. Anna Vollmer", focus: "Rollenpassung, Erwartungen, Entwicklungspfad" },
+  {
+    role: "Hiring Manager",
+    name: "Dr. Anna Vollmer",
+    focus: "Rollenpassung, Erwartungen, Entwicklungspfad",
+  },
   { role: "Team Lead", name: "Markus Hentschel", focus: "Fachliche Tiefe, Architekturdenken" },
   { role: "Peer Engineer", name: "Yusuf Demir", focus: "Zusammenarbeit, Pairing-Verhalten" },
-  { role: "Stakeholder Fachbereich", name: "Claudia Reiß", focus: "Kommunikation Richtung Business" },
+  {
+    role: "Stakeholder Fachbereich",
+    name: "Claudia Reiß",
+    focus: "Kommunikation Richtung Business",
+  },
 ];

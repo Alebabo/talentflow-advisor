@@ -23,7 +23,9 @@ function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => vo
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Etwas ist schiefgelaufen</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Etwas ist schiefgelaufen
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Es ist ein unerwarteter Fehler aufgetreten. Bitte versuche es erneut.
         </p>

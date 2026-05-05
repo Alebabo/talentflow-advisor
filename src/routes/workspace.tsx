@@ -9,7 +9,13 @@ import { generateInterviewGuide, listQuestionPrompts, listTeams } from "@/recrui
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, ShieldCheck, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/workspace")({
@@ -42,7 +48,10 @@ export const Route = createFileRoute("/workspace")({
   head: () => ({
     meta: [
       { title: "Interview-Arbeitsbereich - TalentFlow" },
-      { name: "description", content: "CV und Jobbeschreibung zu einem AGG-konformen Interviewkontext zusammenfuhren." },
+      {
+        name: "description",
+        content: "CV und Jobbeschreibung zu einem AGG-konformen Interviewkontext zusammenfuhren.",
+      },
     ],
   }),
   component: WorkspacePage,
@@ -50,8 +59,12 @@ export const Route = createFileRoute("/workspace")({
 
 function WorkspacePage() {
   const { applications, jobs, teams, prompts, authError } = Route.useLoaderData();
-  const extractedApplications = applications.filter((document) => document.status === "extracted" && document.extraction);
-  const extractedJobs = jobs.filter((document) => document.status === "extracted" && document.extraction);
+  const extractedApplications = applications.filter(
+    (document) => document.status === "extracted" && document.extraction,
+  );
+  const extractedJobs = jobs.filter(
+    (document) => document.status === "extracted" && document.extraction,
+  );
 
   const [applicationId, setApplicationId] = useState<string>(extractedApplications[0]?.id ?? "");
   const [jobId, setJobId] = useState<string>(extractedJobs[0]?.id ?? "");
@@ -97,7 +110,9 @@ function WorkspacePage() {
       });
       setGuide(result);
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "Interviewleitfaden konnte nicht erzeugt werden.");
+      setGenerationError(
+        error instanceof Error ? error.message : "Interviewleitfaden konnte nicht erzeugt werden.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -136,20 +151,25 @@ function WorkspacePage() {
             <div className="space-y-2">
               <Label>Bewerbung / CV</Label>
               <Select value={applicationId} onValueChange={setApplicationId}>
-                <SelectTrigger><SelectValue placeholder="CV auswaehlen" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="CV auswaehlen" />
+                </SelectTrigger>
                 <SelectContent>
                   {extractedApplications.map((document) => {
                     const extraction = document.kind === "cv" ? document.extraction : null;
                     return (
                       <SelectItem key={document.id} value={document.id}>
-                        {(extraction && "full_name" in extraction && extraction.full_name) || document.filename}
+                        {(extraction && "full_name" in extraction && extraction.full_name) ||
+                          document.filename}
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {(applicationExtraction && "summary" in applicationExtraction && applicationExtraction.summary) ||
+                {(applicationExtraction &&
+                  "summary" in applicationExtraction &&
+                  applicationExtraction.summary) ||
                   "Noch kein CV ausgewaehlt."}
               </p>
             </div>
@@ -157,27 +177,34 @@ function WorkspacePage() {
             <div className="space-y-2">
               <Label>Job</Label>
               <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger><SelectValue placeholder="Job auswaehlen" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Job auswaehlen" />
+                </SelectTrigger>
                 <SelectContent>
                   {extractedJobs.map((document) => {
-                    const extraction = document.kind === "job_description" ? document.extraction : null;
+                    const extraction =
+                      document.kind === "job_description" ? document.extraction : null;
                     return (
                       <SelectItem key={document.id} value={document.id}>
-                        {(extraction && "title" in extraction && extraction.title) || document.filename}
+                        {(extraction && "title" in extraction && extraction.title) ||
+                          document.filename}
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {(jobExtraction && "summary" in jobExtraction && jobExtraction.summary) || "Noch kein Job ausgewaehlt."}
+                {(jobExtraction && "summary" in jobExtraction && jobExtraction.summary) ||
+                  "Noch kein Job ausgewaehlt."}
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>Team</Label>
               <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger><SelectValue placeholder="Team auswaehlen" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Team auswaehlen" />
+                </SelectTrigger>
                 <SelectContent>
                   {teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
@@ -187,7 +214,8 @@ function WorkspacePage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {selectedTeam?.description || "Optional: Erst unter Teams ein Profil hochladen, um mehr Kontext zu nutzen."}
+                {selectedTeam?.description ||
+                  "Optional: Erst unter Teams ein Profil hochladen, um mehr Kontext zu nutzen."}
               </p>
             </div>
 
@@ -204,7 +232,8 @@ function WorkspacePage() {
 
           <footer className="flex flex-col gap-3 border-t border-border bg-muted/30 px-6 py-4 md:flex-row md:items-center md:justify-between">
             <p className="max-w-2xl text-xs text-muted-foreground">
-              Dieser Workspace kombiniert CV, Job, Team und Recruiter-Notizen mit {prompts.length} aktiven Prompt-Regeln.
+              Dieser Workspace kombiniert CV, Job, Team und Recruiter-Notizen mit {prompts.length}{" "}
+              aktiven Prompt-Regeln.
             </p>
             <Button
               size="lg"
@@ -212,7 +241,11 @@ function WorkspacePage() {
               onClick={() => void buildGuide()}
               className="bg-[#1f004c] text-[#fffcd9] hover:bg-[#2a0a66] disabled:bg-[#1f004c]/40 disabled:text-[#fffcd9]"
             >
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {isGenerating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
               Interviewleitfaden erzeugen
             </Button>
           </footer>
@@ -229,10 +262,13 @@ function WorkspacePage() {
             <div>
               <h2 className="text-sm font-semibold text-foreground">Interviewleitfaden</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                AGG-konforme Fokusfragen auf Basis echter Extraktionsdaten und gespeicherter System-Prompts.
+                AGG-konforme Fokusfragen auf Basis echter Extraktionsdaten und gespeicherter
+                System-Prompts.
               </p>
             </div>
-            <StatusPill tone={guide ? "success" : "neutral"}>{guide ? "Bereit" : "Noch nicht erzeugt"}</StatusPill>
+            <StatusPill tone={guide ? "success" : "neutral"}>
+              {guide ? "Bereit" : "Noch nicht erzeugt"}
+            </StatusPill>
           </div>
 
           {guide ? (
@@ -247,10 +283,13 @@ function WorkspacePage() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Fokusfragen</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Icebreaker-Fragen</h3>
                   <ul className="mt-3 space-y-2 text-sm text-foreground">
-                    {guide.focusQuestions.map((question) => (
-                      <li key={question} className="rounded-lg border border-border bg-background px-4 py-3">
+                    {guide.icebreakerQuestions.map((question) => (
+                      <li
+                        key={question}
+                        className="rounded-lg border border-border bg-background px-4 py-3"
+                      >
                         {question}
                       </li>
                     ))}
@@ -258,11 +297,30 @@ function WorkspacePage() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Relevante Erfahrungsanker</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Vertiefungsfragen</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-foreground">
+                    {guide.focusQuestions.map((question) => (
+                      <li
+                        key={question}
+                        className="rounded-lg border border-border bg-background px-4 py-3"
+                      >
+                        {question}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Relevante Erfahrungsanker
+                  </h3>
                   <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                     {guide.experienceHighlights.length > 0 ? (
                       guide.experienceHighlights.map((highlight) => (
-                        <div key={highlight} className="rounded-lg border border-border bg-background px-4 py-3">
+                        <div
+                          key={highlight}
+                          className="rounded-lg border border-border bg-background px-4 py-3"
+                        >
                           {highlight}
                         </div>
                       ))
@@ -309,14 +367,18 @@ function WorkspacePage() {
                 <div className="rounded-lg border border-border bg-muted/20 p-4">
                   <h3 className="text-sm font-semibold text-foreground">Staerken</h3>
                   <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    {guide.strengths.map((item) => <p key={item}>{item}</p>)}
+                    {guide.strengths.map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
                   </div>
                 </div>
 
                 <div className="rounded-lg border border-border bg-muted/20 p-4">
                   <h3 className="text-sm font-semibold text-foreground">Schwaechen / Risiken</h3>
                   <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    {guide.weaknesses.map((item) => <p key={item}>{item}</p>)}
+                    {guide.weaknesses.map((item) => (
+                      <p key={item}>{item}</p>
+                    ))}
                   </div>
                 </div>
 
@@ -340,13 +402,16 @@ function WorkspacePage() {
                       <p>Noch kein Teamkontext hinterlegt.</p>
                     )}
                   </div>
-                  {guide.teamMatchSummary && <p className="mt-3 text-sm text-foreground">{guide.teamMatchSummary}</p>}
+                  {guide.teamMatchSummary && (
+                    <p className="mt-3 text-sm text-foreground">{guide.teamMatchSummary}</p>
+                  )}
                 </div>
               </div>
             </div>
           ) : (
             <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-              Waehle einen extrahierten CV und eine Jobbeschreibung aus und erzeuge dann den Interviewleitfaden.
+              Waehle einen extrahierten CV und eine Jobbeschreibung aus und erzeuge dann den
+              Interviewleitfaden.
             </div>
           )}
         </section>
@@ -356,12 +421,29 @@ function WorkspacePage() {
             <h2 className="text-sm font-semibold text-foreground">CV-Extraktion</h2>
             {applicationExtraction ? (
               <div className="mt-4 space-y-3 text-sm text-foreground">
-                <p><span className="font-medium">Name:</span> {"full_name" in applicationExtraction ? applicationExtraction.full_name || "-" : "-"}</p>
-                <p><span className="font-medium">Standort:</span> {"location" in applicationExtraction ? applicationExtraction.location || "-" : "-"}</p>
-                <p><span className="font-medium">Skills:</span> {"skills" in applicationExtraction ? applicationExtraction.skills.join(", ") || "-" : "-"}</p>
+                <p>
+                  <span className="font-medium">Name:</span>{" "}
+                  {"full_name" in applicationExtraction
+                    ? applicationExtraction.full_name || "-"
+                    : "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Standort:</span>{" "}
+                  {"location" in applicationExtraction
+                    ? applicationExtraction.location || "-"
+                    : "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Skills:</span>{" "}
+                  {"skills" in applicationExtraction
+                    ? applicationExtraction.skills.join(", ") || "-"
+                    : "-"}
+                </p>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten CV auswaehlen.</p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Bitte zuerst einen extrahierten CV auswaehlen.
+              </p>
             )}
           </article>
 
@@ -369,12 +451,25 @@ function WorkspacePage() {
             <h2 className="text-sm font-semibold text-foreground">Job-Extraktion</h2>
             {jobExtraction ? (
               <div className="mt-4 space-y-3 text-sm text-foreground">
-                <p><span className="font-medium">Titel:</span> {"title" in jobExtraction ? jobExtraction.title || "-" : "-"}</p>
-                <p><span className="font-medium">Standort:</span> {"location" in jobExtraction ? jobExtraction.location || "-" : "-"}</p>
-                <p><span className="font-medium">Required Skills:</span> {"required_skills" in jobExtraction ? jobExtraction.required_skills.join(", ") || "-" : "-"}</p>
+                <p>
+                  <span className="font-medium">Titel:</span>{" "}
+                  {"title" in jobExtraction ? jobExtraction.title || "-" : "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Standort:</span>{" "}
+                  {"location" in jobExtraction ? jobExtraction.location || "-" : "-"}
+                </p>
+                <p>
+                  <span className="font-medium">Required Skills:</span>{" "}
+                  {"required_skills" in jobExtraction
+                    ? jobExtraction.required_skills.join(", ") || "-"
+                    : "-"}
+                </p>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten Job auswaehlen.</p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Bitte zuerst einen extrahierten Job auswaehlen.
+              </p>
             )}
           </article>
         </section>

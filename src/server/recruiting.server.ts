@@ -9,7 +9,12 @@ import {
   type ListedDocument,
 } from "@/server/extraction.server";
 import { defaultQuestionPrompts } from "@/lib/default-question-prompts";
-import { buildFallbackGuide, type InterviewGuideData, type PromptRecord, type TeamRecord } from "@/lib/recruiting";
+import {
+  buildFallbackGuide,
+  type InterviewGuideData,
+  type PromptRecord,
+  type TeamRecord,
+} from "@/lib/recruiting";
 
 const teamUploadInputSchema = z.object({
   fileBase64: z.string().min(1),
@@ -24,14 +29,40 @@ const generateGuideInputSchema = z.object({
   teamId: z.string().uuid().optional().nullable(),
 });
 
-const applicationStatusSchema = z.enum(["new", "screening", "interview", "offer", "hired", "rejected", "withdrawn"]);
+const applicationStatusSchema = z.enum([
+  "new",
+  "screening",
+  "interview",
+  "offer",
+  "hired",
+  "rejected",
+  "withdrawn",
+]);
 
 const updateApplicationStatusInputSchema = z.object({
   documentId: z.string().uuid(),
   status: applicationStatusSchema,
 });
 
-export { applicationStatusSchema, generateGuideInputSchema, teamUploadInputSchema, updateApplicationStatusInputSchema };
+const updateCandidateEmailInputSchema = z.object({
+  documentId: z.string().uuid(),
+  email: z.string().trim().email("Bitte eine gueltige E-Mail-Adresse eingeben."),
+});
+
+const updateQuestionPromptInputSchema = z.object({
+  id: z.string().uuid(),
+  isActive: z.boolean(),
+  systemPrompt: z.string().trim().min(1, "Bitte einen System-Prompt hinterlegen."),
+});
+
+export {
+  applicationStatusSchema,
+  generateGuideInputSchema,
+  teamUploadInputSchema,
+  updateApplicationStatusInputSchema,
+  updateCandidateEmailInputSchema,
+  updateQuestionPromptInputSchema,
+};
 
 const teamToolSchema = {
   type: "object",
@@ -45,7 +76,15 @@ const teamToolSchema = {
     focus_areas: { type: "array", items: { type: "string" } },
     members: { type: ["integer", "null"] },
   },
-  required: ["name", "business_unit", "description", "team_values", "interview_style", "focus_areas", "members"],
+  required: [
+    "name",
+    "business_unit",
+    "description",
+    "team_values",
+    "interview_style",
+    "focus_areas",
+    "members",
+  ],
 } as const;
 
 const guideToolSchema = {
@@ -56,9 +95,10 @@ const guideToolSchema = {
     jobTitle: { type: "string" },
     candidateSummary: { type: "string" },
     roleSummary: { type: "string" },
+    icebreakerQuestions: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 3 },
     matchingSkills: { type: "array", items: { type: "string" } },
     missingSkills: { type: "array", items: { type: "string" } },
-    focusQuestions: { type: "array", items: { type: "string" } },
+    focusQuestions: { type: "array", items: { type: "string" }, minItems: 5, maxItems: 10 },
     experienceHighlights: { type: "array", items: { type: "string" } },
     recruiterSignals: { type: "array", items: { type: "string" } },
     teamSignals: { type: "array", items: { type: "string" } },
@@ -71,6 +111,7 @@ const guideToolSchema = {
     "jobTitle",
     "candidateSummary",
     "roleSummary",
+    "icebreakerQuestions",
     "matchingSkills",
     "missingSkills",
     "focusQuestions",
@@ -110,8 +151,7 @@ async function callGeminiTool<T>({
     | {
         role: "user";
         content: Array<
-          | { type: "text"; text: string }
-          | { type: "image_url"; image_url: { url: string } }
+          { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
         >;
       }
   >;
@@ -119,74 +159,73 @@ async function callGeminiTool<T>({
   toolDescription: string;
   toolName: string;
 }) {
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gemini-2.5-pro",
-      temperature: 0.2,
-      messages,
-      tools: [
-        {
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gemini-2.5-pro",
+        temperature: 0.2,
+        messages,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: toolName,
+              description: toolDescription,
+              parameters,
+              strict: true,
+            },
+          },
+        ],
+        tool_choice: {
           type: "function",
           function: {
             name: toolName,
-            description: toolDescription,
-            parameters,
-            strict: true,
           },
         },
-      ],
-      tool_choice: {
-        type: "function",
-        function: {
-          name: toolName,
-        },
-      },
-    }),
-  });
+      }),
+    },
+  );
 
   if (!response.ok) {
     const body = await response.text();
-    throw new ExtractionError("INTERNAL", `Gemini-Aufruf fehlgeschlagen (${response.status}): ${body}`, response.status);
+    throw new ExtractionError(
+      "INTERNAL",
+      `Gemini-Aufruf fehlgeschlagen (${response.status}): ${body}`,
+      response.status,
+    );
   }
 
   const payload = await response.json();
   const rawArguments = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
 
   if (!rawArguments) {
-    throw new ExtractionError("INVALID_RESPONSE", "Die KI hat kein strukturiertes Ergebnis geliefert.", 502);
+    throw new ExtractionError(
+      "INVALID_RESPONSE",
+      "Die KI hat kein strukturiertes Ergebnis geliefert.",
+      502,
+    );
   }
 
   try {
     return JSON.parse(rawArguments) as T;
   } catch {
-    throw new ExtractionError("INVALID_RESPONSE", "Die KI-Antwort konnte nicht geparst werden.", 502);
+    throw new ExtractionError(
+      "INVALID_RESPONSE",
+      "Die KI-Antwort konnte nicht geparst werden.",
+      502,
+    );
   }
 }
 
 export async function ensureDefaultPrompts(supabase: SupabaseClient, userId: string) {
-  const { data: existingRows, error: readError } = await supabase
-    .from("question_generation_system_prompts")
-    .select("prompt_key")
-    .eq("user_id", userId);
-
-  if (readError) {
-    throw new ExtractionError("INTERNAL", "Prompts konnten nicht geladen werden.", 500);
-  }
-
-  const existingKeys = new Set((existingRows ?? []).map((row) => row.prompt_key));
-  const missing = defaultQuestionPrompts.filter((prompt) => !existingKeys.has(prompt.promptKey));
-
-  if (missing.length === 0) {
-    return;
-  }
-
-  const { error } = await supabase.from("question_generation_system_prompts").insert(
-    missing.map((prompt) => ({
+  const { error } = await supabase.from("question_generation_system_prompts").upsert(
+    defaultQuestionPrompts.map((prompt) => ({
       user_id: userId,
       team_id: null,
       name: prompt.name,
@@ -196,10 +235,18 @@ export async function ensureDefaultPrompts(supabase: SupabaseClient, userId: str
       system_prompt: prompt.systemPrompt,
       is_active: true,
     })),
+    {
+      ignoreDuplicates: true,
+      onConflict: "user_id,prompt_key",
+    },
   );
 
   if (error) {
-    throw new ExtractionError("INTERNAL", "Default-Prompts konnten nicht angelegt werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Default-Prompts konnten nicht synchronisiert werden.",
+      500,
+    );
   }
 }
 
@@ -235,6 +282,38 @@ export async function listQuestionPrompts(supabase: SupabaseClient, userId: stri
   return data ?? [];
 }
 
+export async function updateQuestionPrompt({
+  supabase,
+  userId,
+  promptId,
+  systemPrompt,
+  isActive,
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+  promptId: string;
+  systemPrompt: string;
+  isActive: boolean;
+}) {
+  const { data, error } = await supabase
+    .from("question_generation_system_prompts")
+    .update({
+      is_active: isActive,
+      system_prompt: systemPrompt.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", promptId)
+    .eq("user_id", userId)
+    .select("*")
+    .single<PromptRecord>();
+
+  if (error || !data) {
+    throw new ExtractionError("INTERNAL", "System-Prompt konnte nicht gespeichert werden.", 500);
+  }
+
+  return data;
+}
+
 export async function createTeamFromUpload({
   supabase,
   userId,
@@ -257,8 +336,7 @@ export async function createTeamFromUpload({
     | {
         role: "user";
         content: Array<
-          | { type: "text"; text: string }
-          | { type: "image_url"; image_url: { url: string } }
+          { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
         >;
       }
   > = [
@@ -277,8 +355,14 @@ export async function createTeamFromUpload({
     messages.push({
       role: "user",
       content: [
-        { type: "text", text: `Erzeuge aus diesem Teamdokument einen Teamdatensatz. Quelldatei: ${filename}` },
-        { type: "image_url", image_url: { url: `data:${mimeType};base64,${buffer.toString("base64")}` } },
+        {
+          type: "text",
+          text: `Erzeuge aus diesem Teamdokument einen Teamdatensatz. Quelldatei: ${filename}`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: `data:${mimeType};base64,${buffer.toString("base64")}` },
+        },
       ],
     });
   } else {
@@ -356,7 +440,11 @@ async function getExtractionDocument(supabase: SupabaseClient, documentId: strin
   const document = await getDocumentById(supabase, documentId);
 
   if (document.kind === "cv") {
-    const { data, error } = await supabase.from("cv_extractions").select("*").eq("document_id", documentId).maybeSingle();
+    const { data, error } = await supabase
+      .from("cv_extractions")
+      .select("*")
+      .eq("document_id", documentId)
+      .maybeSingle();
     if (error || !data) {
       throw new ExtractionError("NOT_FOUND", "CV-Extraktion wurde nicht gefunden.", 404);
     }
@@ -364,7 +452,11 @@ async function getExtractionDocument(supabase: SupabaseClient, documentId: strin
     return { ...document, extraction: data } as ListedDocument;
   }
 
-  const { data, error } = await supabase.from("job_extractions").select("*").eq("document_id", documentId).maybeSingle();
+  const { data, error } = await supabase
+    .from("job_extractions")
+    .select("*")
+    .eq("document_id", documentId)
+    .maybeSingle();
   if (error || !data) {
     throw new ExtractionError("NOT_FOUND", "Job-Extraktion wurde nicht gefunden.", 404);
   }
@@ -373,7 +465,9 @@ async function getExtractionDocument(supabase: SupabaseClient, documentId: strin
 }
 
 function buildPromptBlock(prompts: PromptRecord[], team: TeamRecord | null) {
-  const generalPrompts = prompts.filter((prompt) => prompt.is_active && (prompt.team_id == null || prompt.team_id === team?.id));
+  const generalPrompts = prompts.filter(
+    (prompt) => prompt.is_active && (prompt.team_id == null || prompt.team_id === team?.id),
+  );
   return generalPrompts
     .map((prompt) => `[${prompt.prompt_key}] ${prompt.system_prompt}`)
     .join("\n\n");
@@ -406,12 +500,16 @@ export async function generateInterviewGuide({
   ]);
 
   if (applicationDocument.kind !== "cv" || jobDocument.kind !== "job_description") {
-    throw new ExtractionError("INTERNAL", "Falsche Dokumenttypen fuer die Leitfadengenerierung.", 400);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Falsche Dokumenttypen fuer die Leitfadengenerierung.",
+      400,
+    );
   }
 
   const application = applicationDocument.extraction as CvExtractionPayload;
   const job = jobDocument.extraction as JobExtractionPayload;
-  const team = teamId ? teams.find((entry) => entry.id === teamId) ?? null : null;
+  const team = teamId ? (teams.find((entry) => entry.id === teamId) ?? null) : null;
   const recruiterSignals = recruiterNotes
     .split(/\n+/)
     .map((entry) => entry.trim())
@@ -443,6 +541,9 @@ export async function generateInterviewGuide({
         content: [
           "Du erzeugst AGG-konforme Interviewvorbereitung fuer den Fachbereich.",
           "Nutze die folgenden gespeicherten Systemprompts als verbindliche Leitplanken:",
+          "Liefere immer genau 3 Icebreaker-Fragen fuer den lockeren Einstieg.",
+          "Liefere danach immer 5 bis 10 weitere Interviewfragen fuer Vertiefung, Fachlichkeit, Zusammenarbeit und Motivation.",
+          "Die Icebreaker-Fragen gehoeren ausschliesslich in icebreakerQuestions, die restlichen Fragen ausschliesslich in focusQuestions.",
           promptBlock || "Keine zusaetzlichen Prompts vorhanden.",
         ].join("\n\n"),
       },
@@ -468,7 +569,8 @@ export async function generateInterviewGuide({
     ],
     parameters: guideToolSchema,
     toolName: "generate_interview_guide",
-    toolDescription: "Erzeugt strukturierte Interviewvorbereitung aus Kandidat, Job, Team und Prompts.",
+    toolDescription:
+      "Erzeugt strukturierte Interviewvorbereitung aus Kandidat, Job, Team und Prompts.",
   });
 
   return generated;
@@ -546,7 +648,11 @@ async function sendFeedbackEmail({
 
   if (!response.ok) {
     const body = await response.text();
-    throw new ExtractionError("INTERNAL", `Feedback-Mail konnte nicht gesendet werden: ${body}`, response.status);
+    throw new ExtractionError(
+      "INTERNAL",
+      `Feedback-Mail konnte nicht gesendet werden: ${body}`,
+      response.status,
+    );
   }
 }
 
@@ -562,7 +668,11 @@ export async function updateApplicationStatus({
   const document = await getExtractionDocument(supabase, documentId);
 
   if (document.kind !== "cv") {
-    throw new ExtractionError("INTERNAL", "Nur Bewerbungen koennen einen Bewerbungsstatus erhalten.", 400);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Nur Bewerbungen koennen einen Bewerbungsstatus erhalten.",
+      400,
+    );
   }
 
   const { data: updatedDocument, error } = await supabase
@@ -576,13 +686,18 @@ export async function updateApplicationStatus({
     .single();
 
   if (error || !updatedDocument) {
-    throw new ExtractionError("INTERNAL", "Bewerbungsstatus konnte nicht aktualisiert werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Bewerbungsstatus konnte nicht aktualisiert werden.",
+      500,
+    );
   }
 
   if (!isTerminalApplicationStatus(status)) {
     return {
       deleted: false,
       emailed: false,
+      demoCleanupPrompt: false,
       status,
       document: {
         ...document,
@@ -591,27 +706,59 @@ export async function updateApplicationStatus({
     };
   }
 
-  const extraction = document.extraction as CvExtractionPayload;
-  const email = extraction.email?.trim();
+  return {
+    deleted: false,
+    emailed: false,
+    demoCleanupPrompt: true,
+    status,
+    document: {
+      ...document,
+      ...updatedDocument,
+    },
+  };
+}
 
-  if (!email) {
-    throw new ExtractionError("INTERNAL", "Keine E-Mail-Adresse im Kandidatenprofil erkannt. Finalisierung abgebrochen.", 400);
+export async function updateCandidateEmail({
+  supabase,
+  documentId,
+  email,
+}: {
+  documentId: string;
+  email: string;
+  supabase: SupabaseClient;
+}) {
+  const document = await getExtractionDocument(supabase, documentId);
+
+  if (document.kind !== "cv") {
+    throw new ExtractionError(
+      "INTERNAL",
+      "Nur Bewerbungen koennen eine Kandidaten-E-Mail erhalten.",
+      400,
+    );
   }
 
-  await sendFeedbackEmail({
-    to: email,
-    candidateName: extraction.full_name || "Bewerber:in",
-    status,
-  });
+  const normalizedEmail = email.trim().toLowerCase();
 
-  const { deleteStoredDocument } = await import("./extraction.server");
-  await deleteStoredDocument(supabase, documentId);
+  const { data, error } = await supabase
+    .from("cv_extractions")
+    .update({
+      email: normalizedEmail,
+    })
+    .eq("document_id", documentId)
+    .select("*")
+    .single<CvExtractionPayload>();
+
+  if (error || !data) {
+    throw new ExtractionError(
+      "INTERNAL",
+      "Kandidaten-E-Mail konnte nicht gespeichert werden.",
+      500,
+    );
+  }
 
   return {
-    deleted: true,
-    emailed: true,
-    status,
     documentId,
-    email,
+    email: normalizedEmail,
+    extraction: data,
   };
 }

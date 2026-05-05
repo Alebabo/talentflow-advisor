@@ -42,7 +42,8 @@ export function AuthRequiredCard({ message }: { message?: string | null }) {
     <div className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
       <div className="text-sm font-semibold text-foreground">Supabase-Anmeldung erforderlich</div>
       <p className="mt-2 text-sm text-muted-foreground">
-        {message || "Bitte melde dich an, damit die geschutzten Serverfunktionen mit deiner Session laufen konnen."}
+        {message ||
+          "Bitte melde dich an, damit die geschutzten Serverfunktionen mit deiner Session laufen konnen."}
       </p>
 
       <form className="mt-4 space-y-4" onSubmit={handleLogin}>
@@ -70,7 +71,11 @@ export function AuthRequiredCard({ message }: { message?: string | null }) {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button type="submit" disabled={isSubmitting} className="bg-[#1f004c] text-[#fffcd9] hover:bg-[#2a0a66]">
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-[#1f004c] text-[#fffcd9] hover:bg-[#2a0a66]"
+        >
           {isSubmitting ? "Anmeldung lauft..." : "Mit Supabase anmelden"}
         </Button>
       </form>

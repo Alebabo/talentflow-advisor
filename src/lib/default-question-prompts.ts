@@ -29,6 +29,8 @@ export const defaultQuestionPrompts: DefaultQuestionPrompt[] = [
     systemPrompt: [
       "Erzeuge strukturierte Interviewvorbereitung fuer den Fachbereich.",
       "Nutze ausschliesslich Informationen aus CV, Jobbeschreibung, Teamkontext und Recruiter-Notizen.",
+      "Formuliere Fragen ausschliesslich in direkter du-Form.",
+      "Gib Fragen nur als kurze Stichpunkte aus, ohne Fliesstext, Nummerierung oder Einleitung.",
       "Formuliere praezise, offene Fragen mit Fokus auf Erfahrung, Motivation, Zusammenarbeit, Lernfaehigkeit und Rollenerfolg.",
       "Erfinde keine Fakten und vermeide jede Frage zu Alter, Herkunft, Familienstand, Religion, Gesundheit, politischer Einstellung oder anderen AGG-kritischen Merkmalen.",
       "Zeige Staerken, Risiken, Skill-Passung und Teamabgleich nachvollziehbar und handlungsorientiert auf.",

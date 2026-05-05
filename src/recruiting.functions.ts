@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createMiddleware } from "@tanstack/react-start";
 import { createRequestSupabaseClient } from "@/server/extraction.server";
-import { generateGuideInputSchema, teamUploadInputSchema, updateApplicationStatusInputSchema } from "@/server/recruiting.server";
+import {
+  generateGuideInputSchema,
+  teamUploadInputSchema,
+  updateApplicationStatusInputSchema,
+  updateCandidateEmailInputSchema,
+  updateQuestionPromptInputSchema,
+} from "@/server/recruiting.server";
 
 function toSerializableError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unbekannter Fehler.";
@@ -16,28 +22,30 @@ function toSerializableError(error: unknown) {
   return Object.assign(wrapped, { code: "INTERNAL", status: 500 });
 }
 
-const requireSupabaseAuth = createMiddleware({ type: "function" }).server(async ({ next, request }) => {
-  const supabase = createRequestSupabaseClient(request);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
+  async ({ next, request }) => {
+    const supabase = createRequestSupabaseClient(request);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    throw toSerializableError({
-      message: "Anmeldung erforderlich.",
-      code: "UNAUTHORIZED",
-      status: 401,
+    if (error || !user) {
+      throw toSerializableError({
+        message: "Anmeldung erforderlich.",
+        code: "UNAUTHORIZED",
+        status: 401,
+      });
+    }
+
+    return next({
+      context: {
+        supabase,
+        user,
+      },
     });
-  }
-
-  return next({
-    context: {
-      supabase,
-      user,
-    },
-  });
-});
+  },
+);
 
 export const listTeams = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -122,6 +130,42 @@ export const updateApplicationStatus = createServerFn({ method: "POST" })
         supabase: context.supabase,
         documentId: data.documentId,
         status: data.status,
+      });
+    } catch (error) {
+      throw toSerializableError(error);
+    }
+  });
+
+export const updateCandidateEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(updateCandidateEmailInputSchema)
+  .handler(async ({ data, context }) => {
+    const { updateCandidateEmail } = await import("./server/recruiting.server");
+
+    try {
+      return await updateCandidateEmail({
+        supabase: context.supabase,
+        documentId: data.documentId,
+        email: data.email,
+      });
+    } catch (error) {
+      throw toSerializableError(error);
+    }
+  });
+
+export const updateQuestionPrompt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(updateQuestionPromptInputSchema)
+  .handler(async ({ data, context }) => {
+    const { updateQuestionPrompt } = await import("./server/recruiting.server");
+
+    try {
+      return await updateQuestionPrompt({
+        supabase: context.supabase,
+        userId: context.user.id,
+        promptId: data.id,
+        systemPrompt: data.systemPrompt,
+        isActive: data.isActive,
       });
     } catch (error) {
       throw toSerializableError(error);

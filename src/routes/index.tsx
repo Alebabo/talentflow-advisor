@@ -30,7 +30,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "TalentFlow - Recruiting-Arbeitsbereich" },
-      { name: "description", content: "Strukturierte, AGG-konforme Interviewvorbereitung fur Metafinanz / HTM." },
+      {
+        name: "description",
+        content: "Strukturierte, AGG-konforme Interviewvorbereitung fur Metafinanz / HTM.",
+      },
     ],
   }),
   component: Index,
@@ -53,7 +56,9 @@ function Index() {
     { label: "Teams", value: 0, icon: Users },
     {
       label: "Extrahiert",
-      value: jobs.filter((job) => job.status === "extracted").length + applications.filter((application) => application.status === "extracted").length,
+      value:
+        jobs.filter((job) => job.status === "extracted").length +
+        applications.filter((application) => application.status === "extracted").length,
       icon: Sparkles,
     },
   ];
@@ -78,12 +83,15 @@ function Index() {
         <div className="relative overflow-hidden rounded-2xl border border-border bg-spectral-soft p-6 md:p-8">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral" />
           <div className="max-w-2xl">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1f004c]/70">metafinanz · HTM</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1f004c]/70">
+              metafinanz · HTM
+            </div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
               Wir bringen <span className="text-spectral">Zukunftsfaehigkeit</span> ans Licht.
             </h2>
             <p className="mt-2 max-w-xl text-sm text-foreground/70">
-              Strukturierte, AGG-konforme Interviewvorbereitung mit echten Dokumentdaten aus Supabase.
+              Strukturierte, AGG-konforme Interviewvorbereitung mit echten Dokumentdaten aus
+              Supabase.
             </p>
           </div>
         </div>
@@ -92,10 +100,15 @@ function Index() {
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
+              <div
+                key={stat.label}
+                className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]"
+              >
                 <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral opacity-70" />
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{stat.label}</span>
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {stat.label}
+                  </span>
                   <Icon className="h-4 w-4 text-[#854bff]" />
                 </div>
                 <div className="mt-3 text-2xl font-semibold text-foreground">{stat.value}</div>
@@ -108,7 +121,9 @@ function Index() {
           <section className="rounded-xl border border-border bg-card p-6 lg:col-span-2">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Aktuelle Jobs</h2>
-              <Link to="/jobs" className="text-xs text-primary hover:underline">Alle anzeigen</Link>
+              <Link to="/jobs" className="text-xs text-primary hover:underline">
+                Alle anzeigen
+              </Link>
             </div>
             {jobs.length === 0 ? (
               <p className="text-sm text-muted-foreground">Noch keine Jobdokumente vorhanden.</p>
@@ -120,13 +135,26 @@ function Index() {
                     <li key={job.id} className="flex items-center justify-between gap-4 py-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-foreground">
-                          {(extraction && "title" in extraction && extraction.title) || job.filename}
+                          {(extraction && "title" in extraction && extraction.title) ||
+                            job.filename}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {(extraction && "location" in extraction && extraction.location) || "Kein Standort"} · {(extraction && "seniority" in extraction && extraction.seniority) || "Nicht erkannt"}
+                          {(extraction && "location" in extraction && extraction.location) ||
+                            "Kein Standort"}{" "}
+                          ·{" "}
+                          {(extraction && "seniority" in extraction && extraction.seniority) ||
+                            "Nicht erkannt"}
                         </div>
                       </div>
-                      <StatusPill tone={job.status === "extracted" ? "success" : job.status === "processing" ? "warning" : "neutral"}>
+                      <StatusPill
+                        tone={
+                          job.status === "extracted"
+                            ? "success"
+                            : job.status === "processing"
+                              ? "warning"
+                              : "neutral"
+                        }
+                      >
                         {formatVerarbeitungsstatus(job.status)}
                       </StatusPill>
                     </li>
@@ -139,7 +167,9 @@ function Index() {
           <section className="rounded-xl border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Neue Bewerbungen</h2>
-              <Link to="/applications" className="text-xs text-primary hover:underline">Alle anzeigen</Link>
+              <Link to="/applications" className="text-xs text-primary hover:underline">
+                Alle anzeigen
+              </Link>
             </div>
             {applications.length === 0 ? (
               <p className="text-sm text-muted-foreground">Noch keine CV-Dokumente vorhanden.</p>
@@ -147,7 +177,8 @@ function Index() {
               <ul className="space-y-3">
                 {applications.slice(0, 3).map((application) => {
                   const extraction = application.kind === "cv" ? application.extraction : null;
-                  const fullName = extraction && "full_name" in extraction ? extraction.full_name : null;
+                  const fullName =
+                    extraction && "full_name" in extraction ? extraction.full_name : null;
                   return (
                     <li key={application.id} className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
@@ -160,9 +191,18 @@ function Index() {
                           .toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">{fullName || application.filename}</div>
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {fullName || application.filename}
+                        </div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {(extraction && "location" in extraction && extraction.location) || "Kein Standort"} · {extraction && "years_experience" in extraction && extraction.years_experience != null ? `${extraction.years_experience} J. Erfahrung` : "Erfahrung offen"}
+                          {(extraction && "location" in extraction && extraction.location) ||
+                            "Kein Standort"}{" "}
+                          ·{" "}
+                          {extraction &&
+                          "years_experience" in extraction &&
+                          extraction.years_experience != null
+                            ? `${extraction.years_experience} J. Erfahrung`
+                            : "Erfahrung offen"}
                         </div>
                       </div>
                     </li>
@@ -176,7 +216,8 @@ function Index() {
         <section className="rounded-xl border border-border bg-card p-6">
           <h2 className="mb-4 text-sm font-semibold text-foreground">Teamkontext</h2>
           <p className="text-sm text-muted-foreground">
-            Teams werden ueber die Teamkontext-Seite gepflegt und stehen dort fuer Upload und Verwaltung bereit.
+            Teams werden ueber die Teamkontext-Seite gepflegt und stehen dort fuer Upload und
+            Verwaltung bereit.
           </p>
         </section>
       </div>

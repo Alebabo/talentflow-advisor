@@ -6,7 +6,17 @@ import { UploadProgressPopup } from "@/components/upload-progress-popup";
 import { StatusPill } from "@/components/status-pill";
 import { deleteDocument, listDocuments } from "@/extraction.functions";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Building2, Layers, Loader2, MapPin, Search, Trash2, Upload } from "lucide-react";
@@ -15,7 +25,10 @@ export const Route = createFileRoute("/jobs")({
   head: () => ({
     meta: [
       { title: "Jobs - TalentFlow" },
-      { name: "description", content: "Verwaltung aller Jobbeschreibungen, getrennt von Bewerbungen." },
+      {
+        name: "description",
+        content: "Verwaltung aller Jobbeschreibungen, getrennt von Bewerbungen.",
+      },
     ],
   }),
   component: JobsPage,
@@ -28,6 +41,18 @@ function JobsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const upsertDocument = (nextDocument: Awaited<ReturnType<typeof listDocuments>>[number]) => {
+    setDocuments((current) => {
+      const existingIndex = current.findIndex((document) => document.id === nextDocument.id);
+
+      if (existingIndex === -1) {
+        return [nextDocument, ...current];
+      }
+
+      return current.map((document) => (document.id === nextDocument.id ? nextDocument : document));
+    });
+  };
 
   const loadDocuments = async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
@@ -56,16 +81,26 @@ function JobsPage() {
     void loadDocuments();
   }, []);
 
-  const { inputRef, handleFileChange, openPicker, isUploading, error, activeDocumentId, isIndeterminate, isPopupVisible, progress, statusLabel } =
-    useDocumentUpload({
-      kind: "job_description",
-      onUploaded: () => {
-        void loadDocuments({ silent: true });
-      },
-      onSettled: () => {
-        void loadDocuments({ silent: true });
-      },
-    });
+  const {
+    inputRef,
+    handleFileChange,
+    openPicker,
+    isUploading,
+    error,
+    activeDocumentId,
+    isIndeterminate,
+    isPopupVisible,
+    progress,
+    statusLabel,
+  } = useDocumentUpload({
+    kind: "job_description",
+    onUploaded: (document) => {
+      upsertDocument(document);
+    },
+    onSettled: (document) => {
+      upsertDocument(document);
+    },
+  });
 
   const handleDeleteDocument = async (documentId: string) => {
     try {
@@ -79,7 +114,9 @@ function JobsPage() {
       setDocuments((current) => current.filter((document) => document.id !== documentId));
       void loadDocuments({ silent: true });
     } catch (deleteError) {
-      setLoadError(deleteError instanceof Error ? deleteError.message : "Job konnte nicht geloescht werden.");
+      setLoadError(
+        deleteError instanceof Error ? deleteError.message : "Job konnte nicht geloescht werden.",
+      );
     } finally {
       setDeletingId(null);
     }
@@ -138,7 +175,11 @@ function JobsPage() {
               onChange={handleFileChange}
             />
             <Button variant="outline" onClick={openPicker} disabled={isUploading}>
-              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {isUploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
               Job hochladen
             </Button>
           </>
@@ -186,12 +227,19 @@ function JobsPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredDocuments.map((document) => {
               const extraction = document.kind === "job_description" ? document.extraction : null;
-              const title = extraction && "title" in extraction && extraction.title ? extraction.title : document.filename;
+              const title =
+                extraction && "title" in extraction && extraction.title
+                  ? extraction.title
+                  : document.filename;
               const company = extraction && "company" in extraction ? extraction.company : null;
               const location = extraction && "location" in extraction ? extraction.location : null;
-              const seniority = extraction && "seniority" in extraction ? extraction.seniority : null;
+              const seniority =
+                extraction && "seniority" in extraction ? extraction.seniority : null;
               const summary = extraction && "summary" in extraction ? extraction.summary : null;
-              const skills = extraction && "required_skills" in extraction ? extraction.required_skills.slice(0, 4) : [];
+              const skills =
+                extraction && "required_skills" in extraction
+                  ? extraction.required_skills.slice(0, 4)
+                  : [];
 
               return (
                 <article
@@ -200,13 +248,17 @@ function JobsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-semibold leading-snug text-foreground">{title}</h3>
+                      <h3 className="text-base font-semibold leading-snug text-foreground">
+                        {title}
+                      </h3>
                       <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Building2 className="h-3.5 w-3.5" />
                         {company || "Unternehmen nicht erkannt"}
                       </div>
                     </div>
-                    <StatusPill tone={mapStatusTone(document.status)}>{formatStatusLabel(document.status)}</StatusPill>
+                    <StatusPill tone={mapStatusTone(document.status)}>
+                      {formatStatusLabel(document.status)}
+                    </StatusPill>
                   </div>
 
                   <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
@@ -227,7 +279,8 @@ function JobsPage() {
                   <div className="mt-4 space-y-3 border-t border-border pt-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-xs text-muted-foreground">
-                        Quelle: {document.filename} · {new Date(document.created_at).toLocaleDateString("de-DE")}
+                        Quelle: {document.filename} ·{" "}
+                        {new Date(document.created_at).toLocaleDateString("de-DE")}
                       </div>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -253,7 +306,9 @@ function JobsPage() {
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => void handleDeleteDocument(document.id)}>
+                            <AlertDialogAction
+                              onClick={() => void handleDeleteDocument(document.id)}
+                            >
                               Loeschen
                             </AlertDialogAction>
                           </AlertDialogFooter>

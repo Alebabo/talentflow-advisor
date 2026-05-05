@@ -46,6 +46,7 @@ export type InterviewGuideData = {
   applicantName: string;
   candidateSummary: string;
   experienceHighlights: string[];
+  icebreakerQuestions: string[];
   focusQuestions: string[];
   jobTitle: string;
   matchingSkills: string[];
@@ -171,8 +172,12 @@ export function buildFallbackGuide({
   const candidateSkills = normalizeList(application.skills);
   const requiredSkills = normalizeList(job.required_skills);
   const normalizedCandidateSkills = new Set(candidateSkills.map((skill) => skill.toLowerCase()));
-  const matchingSkills = requiredSkills.filter((skill) => normalizedCandidateSkills.has(skill.toLowerCase()));
-  const missingSkills = requiredSkills.filter((skill) => !normalizedCandidateSkills.has(skill.toLowerCase()));
+  const matchingSkills = requiredSkills.filter((skill) =>
+    normalizedCandidateSkills.has(skill.toLowerCase()),
+  );
+  const missingSkills = requiredSkills.filter(
+    (skill) => !normalizedCandidateSkills.has(skill.toLowerCase()),
+  );
   const teamSignals = normalizeList([
     team?.description,
     team?.interview_style,
@@ -185,22 +190,32 @@ export function buildFallbackGuide({
   const insights = buildCandidateInsights(application, team ? [team] : []);
   const applicantName = application.full_name || "Kandidat:in";
   const jobTitle = job.title || "Rolle";
+  const firstSkill = matchingSkills[0] || requiredSkills[0] || "deine Kernstaerken";
+  const topMissingSkill = missingSkills[0];
 
   return {
     applicantName,
     candidateSummary: application.summary || "Keine Zusammenfassung im CV erkannt.",
     experienceHighlights,
+    icebreakerQuestions: [
+      `Wie war dein Weg bis zu dieser Bewerbung bei ${jobTitle}?`,
+      `Welche Station aus deinem bisherigen Werdegang moechtest du zum Einstieg besonders hervorheben?`,
+      `Was hat dich an der Rolle ${jobTitle} und an metafinanz spontan angesprochen?`,
+    ],
     focusQuestions: [
-      `Welche konkreten Beispiele zeigt ${applicantName} fuer ${matchingSkills[0] || requiredSkills[0] || "die Kernanforderungen"}?`,
-      missingSkills[0]
-        ? `Wie wuerde ${applicantName} fehlende Erfahrung in ${missingSkills[0]} aufholen?`
+      `Welche konkreten Beispiele kannst du fuer ${firstSkill} aus deiner bisherigen Praxis geben?`,
+      topMissingSkill
+        ? `Wie wuerdest du fehlende Erfahrung in ${topMissingSkill} in den ersten Monaten gezielt aufbauen?`
         : `Wo kann ${applicantName} in ${jobTitle} in den ersten 90 Tagen den groessten Beitrag leisten?`,
       recruiterSignals[0]
-        ? `Wie laesst sich das Stage-1-Signal "${recruiterSignals[0]}" durch Verhaltensbeispiele validieren?`
-        : "Welche Beispiele zeigen Ownership, Zusammenarbeit und Lernfaehigkeit?",
+        ? `Welche konkreten Situationen belegen oder relativieren das Stage-1-Signal "${recruiterSignals[0]}"?`
+        : "Welche Beispiele zeigen Ownership, Zusammenarbeit und Lernfaehigkeit in deinem Alltag?",
       team?.name
-        ? `Wie wuerde ${applicantName} mit der Arbeitsweise von ${team.name} umgehen?`
-        : "Welche Teamdynamik und welche Stakeholder-Situationen liegen der Person besonders?",
+        ? `Wie wuerdest du dich auf die Arbeitsweise von ${team.name} einstellen?`
+        : "In welchen Teamkonstellationen und Stakeholder-Situationen arbeitest du besonders wirksam?",
+      `Welche Entscheidung aus einem deiner letzten Projekte wuerdest du heute wieder genauso treffen und warum?`,
+      `Wie gehst du vor, wenn Anforderungen noch unklar sind, du aber trotzdem handlungsfaehig bleiben musst?`,
+      `Woran wuerde ein Team nach wenigen Wochen merken, dass du einen guten Beitrag leistest?`,
     ],
     jobTitle,
     matchingSkills,

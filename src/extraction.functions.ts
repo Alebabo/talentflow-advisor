@@ -18,9 +18,12 @@ function estimateBase64Size(base64: string) {
 const uploadDocumentInputSchema = z.object({
   kind: documentKindSchema,
   filename: z.string().trim().min(1).max(255),
-  fileBase64: z.string().min(1).refine((value) => estimateBase64Size(value) <= 10 * 1024 * 1024, {
-    message: "Datei darf maximal 10 MB groß sein.",
-  }),
+  fileBase64: z
+    .string()
+    .min(1)
+    .refine((value) => estimateBase64Size(value) <= 10 * 1024 * 1024, {
+      message: "Datei darf maximal 10 MB groß sein.",
+    }),
   mimeType: z.enum(allowedMimeTypes),
 });
 
@@ -53,29 +56,31 @@ function toSerializableError(error: unknown) {
   return Object.assign(wrapped, { code: "INTERNAL", status: 500 });
 }
 
-const requireSupabaseAuth = createMiddleware({ type: "function" }).server(async ({ next, request }) => {
-  const { createRequestSupabaseClient } = await import("./server/extraction.server");
-  const supabase = createRequestSupabaseClient(request);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
+  async ({ next, request }) => {
+    const { createRequestSupabaseClient } = await import("./server/extraction.server");
+    const supabase = createRequestSupabaseClient(request);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    throw toSerializableError({
-      message: "Anmeldung erforderlich.",
-      code: "UNAUTHORIZED",
-      status: 401,
+    if (error || !user) {
+      throw toSerializableError({
+        message: "Anmeldung erforderlich.",
+        code: "UNAUTHORIZED",
+        status: 401,
+      });
+    }
+
+    return next({
+      context: {
+        supabase,
+        user,
+      },
     });
-  }
-
-  return next({
-    context: {
-      supabase,
-      user,
-    },
-  });
-});
+  },
+);
 
 export const uploadDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

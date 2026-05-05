@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   ShieldCheck,
   BookOpen,
+  MessageSquareQuote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import metafinanzLogo from "@/assets/metafinanz-logo.jpg";
@@ -18,6 +19,7 @@ const nav = [
   { to: "/teams", label: "Teamkontext", icon: Users },
   { to: "/workspace", label: "Interview-Arbeitsbereich", icon: Sparkles, highlight: true },
   { to: "/leitfaden", label: "Interview-Leitfaden", icon: BookOpen },
+  { to: "/antworten-leitfaden", label: "Antworten-Leitfaden", icon: MessageSquareQuote },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -29,9 +31,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="absolute left-0 top-0 h-full w-[3px] bg-spectral" />
 
         <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
-          <img src={metafinanzLogo} alt="metafinanz" className="h-11 w-11 rounded-full object-contain" />
+          <img
+            src={metafinanzLogo}
+            alt="metafinanz"
+            className="h-11 w-11 rounded-full object-contain"
+          />
           <div>
-            <div className="text-sm font-semibold leading-none tracking-tight text-white">TalentFlow</div>
+            <div className="text-sm font-semibold leading-none tracking-tight text-white">
+              TalentFlow
+            </div>
             <div className="mt-1.5 text-[11px] text-white/70">von metafinanz</div>
           </div>
         </div>
@@ -47,7 +55,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 to={item.to}
                 className={cn(
                   "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                  active ? "bg-white/12 font-medium text-white" : "text-white/75 hover:bg-white/8 hover:text-white",
+                  active
+                    ? "bg-white/12 font-medium text-white"
+                    : "text-white/75 hover:bg-white/8 hover:text-white",
                 )}
               >
                 {active && (
@@ -76,16 +86,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Alle generierten Fragen werden auf rechtlich kritische Inhalte geprueft.
           </p>
         </div>
-
-        <div className="flex items-center gap-3 border-t border-white/10 p-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-spectral text-xs font-bold text-[#1f004c]">
-            AV
-          </div>
-          <div className="text-xs">
-            <div className="font-medium text-white">Anna Vollmer</div>
-            <div className="text-white/70">Fachbereich</div>
-          </div>
-        </div>
       </aside>
 
       <main className="min-w-0 flex-1 md:ml-64">{children}</main>
@@ -105,8 +105,12 @@ export function PageHeader({
   return (
     <div className="relative flex flex-col gap-3 bg-card px-6 py-7 md:flex-row md:items-end md:justify-between md:px-10">
       <div>
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>}
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground">
+          {title}
+        </h1>
+        {description && (
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>
+        )}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
       <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-spectral opacity-80" />

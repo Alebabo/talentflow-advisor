@@ -4,20 +4,46 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { AuthRequiredCard } from "@/components/auth-required-card";
 import { UploadProgressPopup } from "@/components/upload-progress-popup";
 import { StatusPill } from "@/components/status-pill";
-import { listDocuments } from "@/extraction.functions";
+import { deleteDocument, listDocuments } from "@/extraction.functions";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
 import { buildCandidateInsights } from "@/lib/recruiting";
-import { listTeams, updateApplicationStatus } from "@/recruiting.functions";
+import { listTeams, updateApplicationStatus, updateCandidateEmail } from "@/recruiting.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Loader2, Mail, MapPin, Search, Upload } from "lucide-react";
+import type { CvExtractionPayload } from "@/server/extraction.server";
 
 export const Route = createFileRoute("/applications")({
   loader: async () => {
     try {
-      const [documents, teams] = await Promise.all([listDocuments({ data: { kind: "cv" } }), listTeams()]);
+      const [documents, teams] = await Promise.all([
+        listDocuments({ data: { kind: "cv" } }),
+        listTeams(),
+      ]);
       return {
         documents,
         teams,
@@ -27,7 +53,8 @@ export const Route = createFileRoute("/applications")({
       return {
         documents: [],
         teams: [],
-        authError: error instanceof Error ? error.message : "Bewerbungen konnten nicht geladen werden.",
+        authError:
+          error instanceof Error ? error.message : "Bewerbungen konnten nicht geladen werden.",
       };
     }
   },
@@ -40,10 +67,41 @@ export const Route = createFileRoute("/applications")({
   component: ApplicationsPage,
 });
 
+function buildGermanProfileBullets(extraction: CvExtractionPayload | null) {
+  if (!extraction) {
+    return ["Noch kein Kurzprofil verfuegbar."];
+  }
+
+  const bullets: string[] = [];
+  const latestExperience =
+    extraction.experience?.find((entry) => entry.role || entry.company) ?? null;
+
+  if (latestExperience?.role || latestExperience?.company) {
+    const roleLine = [latestExperience.role, latestExperience.company]
+      .filter(Boolean)
+      .join(" bei ");
+    bullets.push(`Zuletzt taetig als ${roleLine}.`);
+  }
+
+  if (extraction.years_experience != null) {
+    bullets.push(`${extraction.years_experience} Jahre Berufserfahrung laut Lebenslauf.`);
+  }
+
+  if (extraction.skills.length > 0) {
+    bullets.push(`Schwerpunkte: ${extraction.skills.slice(0, 3).join(", ")}.`);
+  }
+
+  if (extraction.location) {
+    bullets.push(`Standort: ${extraction.location}.`);
+  }
+
+  return bullets.slice(0, 3).length > 0
+    ? bullets.slice(0, 3)
+    : ["Noch kein Kurzprofil verfuegbar."];
+}
+
 function ApplicationsPage() {
   const loaderData = Route.useLoaderData();
-  const terminalStatusHint =
-    "Dieser Status schliesst den Bewerbungsprozess ab. Es wird eine Feedback-Mail versendet und der Kandidat anschliessend DSGVO-konform geloescht.";
   const [documents, setDocuments] = useState(loaderData.documents);
   const [teams, setTeams] = useState(loaderData.teams);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +110,24 @@ function ApplicationsPage() {
   const [search, setSearch] = useState("");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [candidateEmail, setCandidateEmail] = useState("");
+  const [emailUpdatingId, setEmailUpdatingId] = useState<string | null>(null);
+  const [isGdprDialogOpen, setIsGdprDialogOpen] = useState(false);
+  const [gdprCandidateName, setGdprCandidateName] = useState<string | null>(null);
+  const [gdprDocumentId, setGdprDocumentId] = useState<string | null>(null);
+  const [isDeletingCandidate, setIsDeletingCandidate] = useState(false);
+
+  const upsertDocument = (nextDocument: Awaited<ReturnType<typeof listDocuments>>[number]) => {
+    setDocuments((current) => {
+      const existingIndex = current.findIndex((document) => document.id === nextDocument.id);
+
+      if (existingIndex === -1) {
+        return [nextDocument, ...current];
+      }
+
+      return current.map((document) => (document.id === nextDocument.id ? nextDocument : document));
+    });
+  };
 
   const statusOptions = [
     { value: "new", label: "Neu" },
@@ -78,27 +154,43 @@ function ApplicationsPage() {
       }
 
       setLoadError(null);
-      const [documentsResult, teamsResult] = await Promise.all([listDocuments({ data: { kind: "cv" } }), listTeams()]);
+      const [documentsResult, teamsResult] = await Promise.all([
+        listDocuments({ data: { kind: "cv" } }),
+        listTeams(),
+      ]);
       setDocuments(documentsResult);
       setTeams(teamsResult);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Bewerbungen konnten nicht geladen werden.");
+      setLoadError(
+        error instanceof Error ? error.message : "Bewerbungen konnten nicht geladen werden.",
+      );
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  const { inputRef, handleFileChange, openPicker, isUploading, error, activeDocumentId, isIndeterminate, isPopupVisible, progress, statusLabel } =
-    useDocumentUpload({
-      kind: "cv",
-      onUploaded: () => {
-        void loadDocumentsAndTeams({ silent: true });
-      },
-      onSettled: () => {
-        void loadDocumentsAndTeams({ silent: true });
-      },
-    });
+  const {
+    inputRef,
+    handleFileChange,
+    openPicker,
+    isUploading,
+    error,
+    activeDocumentId,
+    isIndeterminate,
+    isPopupVisible,
+    progress,
+    statusLabel,
+  } = useDocumentUpload({
+    kind: "cv",
+    onUploaded: (document) => {
+      upsertDocument(document);
+    },
+    onSettled: (document) => {
+      upsertDocument(document);
+      void loadDocumentsAndTeams({ silent: true });
+    },
+  });
 
   const filteredDocuments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -126,7 +218,15 @@ function ApplicationsPage() {
 
   const selectedDocument = documents.find((document) => document.id === selectedDocumentId) ?? null;
   const selectedExtraction = selectedDocument?.kind === "cv" ? selectedDocument.extraction : null;
-  const selectedInsights = selectedExtraction ? buildCandidateInsights(selectedExtraction, teams) : null;
+  const selectedInsights = selectedExtraction
+    ? buildCandidateInsights(selectedExtraction, teams)
+    : null;
+
+  useEffect(() => {
+    setCandidateEmail(
+      (selectedExtraction && "email" in selectedExtraction && selectedExtraction.email) || "",
+    );
+  }, [selectedExtraction, selectedDocumentId]);
 
   const getStatusLabel = (status: string) =>
     statusOptions.find((entry) => entry.value === status)?.label ?? status;
@@ -154,7 +254,14 @@ function ApplicationsPage() {
       const result = await updateApplicationStatus({
         data: {
           documentId,
-          status: nextStatus as "new" | "screening" | "interview" | "offer" | "hired" | "rejected" | "withdrawn",
+          status: nextStatus as
+            | "new"
+            | "screening"
+            | "interview"
+            | "offer"
+            | "hired"
+            | "rejected"
+            | "withdrawn",
         },
       });
 
@@ -163,9 +270,18 @@ function ApplicationsPage() {
         if (selectedDocumentId === documentId) {
           setSelectedDocumentId(null);
         }
-        setLoadError(`Feedback-Mail an ${result.email} gesendet. Kandidat wurde anschliessend entfernt.`);
+        setLoadError(
+          `Feedback-Mail an ${result.email} gesendet. Kandidat wurde anschliessend entfernt.`,
+        );
         return;
       }
+
+      const updatedDocument = documents.find((document) => document.id === documentId) ?? null;
+      const updatedExtraction = updatedDocument?.kind === "cv" ? updatedDocument.extraction : null;
+      const candidateName =
+        updatedExtraction && "full_name" in updatedExtraction && updatedExtraction.full_name
+          ? updatedExtraction.full_name
+          : (updatedDocument?.filename ?? "Kandidat:in");
 
       setDocuments((current) =>
         current.map((document) =>
@@ -177,10 +293,93 @@ function ApplicationsPage() {
             : document,
         ),
       );
+
+      if (result.demoCleanupPrompt) {
+        setGdprCandidateName(candidateName);
+        setGdprDocumentId(documentId);
+        setIsGdprDialogOpen(true);
+      }
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Status konnte nicht aktualisiert werden.");
+      setLoadError(
+        error instanceof Error ? error.message : "Status konnte nicht aktualisiert werden.",
+      );
     } finally {
       setStatusUpdatingId(null);
+    }
+  };
+
+  const handleCandidateEmailSave = async () => {
+    if (!selectedDocument || selectedDocument.kind !== "cv") {
+      return;
+    }
+
+    try {
+      setEmailUpdatingId(selectedDocument.id);
+      setLoadError(null);
+      const result = await updateCandidateEmail({
+        data: {
+          documentId: selectedDocument.id,
+          email: candidateEmail,
+        },
+      });
+
+      setCandidateEmail(result.email);
+      setDocuments((current) =>
+        current.map((document) =>
+          document.id === selectedDocument.id && document.kind === "cv"
+            ? {
+                ...document,
+                extraction: {
+                  ...document.extraction,
+                  email: result.email,
+                },
+              }
+            : document,
+        ),
+      );
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Kandidaten-E-Mail konnte nicht gespeichert werden.",
+      );
+    } finally {
+      setEmailUpdatingId(null);
+    }
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (!gdprDocumentId) {
+      setIsGdprDialogOpen(false);
+      return;
+    }
+
+    try {
+      setIsDeletingCandidate(true);
+      setLoadError(null);
+
+      await deleteDocument({
+        data: {
+          id: gdprDocumentId,
+        },
+      });
+
+      setDocuments((current) => current.filter((document) => document.id !== gdprDocumentId));
+
+      if (selectedDocumentId === gdprDocumentId) {
+        setSelectedDocumentId(null);
+      }
+
+      setLoadError("Kandidat wurde aus der Kandidatenliste entfernt.");
+      setIsGdprDialogOpen(false);
+      setGdprCandidateName(null);
+      setGdprDocumentId(null);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Kandidat konnte nicht entfernt werden.",
+      );
+    } finally {
+      setIsDeletingCandidate(false);
     }
   };
 
@@ -198,7 +397,11 @@ function ApplicationsPage() {
               onChange={handleFileChange}
             />
             <Button variant="outline" onClick={openPicker} disabled={isUploading}>
-              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {isUploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
               CV hochladen
             </Button>
           </>
@@ -232,10 +435,6 @@ function ApplicationsPage() {
             </div>
           ))}
 
-        <div className="rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm text-foreground">
-          {terminalStatusHint}
-        </div>
-
         {isLoading ? (
           <div className="rounded-xl border border-border bg-card p-8 text-sm text-muted-foreground">
             Bewerbungen werden geladen...
@@ -252,14 +451,16 @@ function ApplicationsPage() {
                   <th className="px-5 py-3 text-left font-medium">Kandidat:in</th>
                   <th className="px-5 py-3 text-left font-medium">Status</th>
                   <th className="hidden px-5 py-3 text-left font-medium md:table-cell">Standort</th>
-                  <th className="hidden px-5 py-3 text-left font-medium lg:table-cell">Kurzprofil</th>
-                  <th className="px-5 py-3 text-left font-medium">Skills</th>
+                  <th className="hidden px-5 py-3 text-left font-medium lg:table-cell">
+                    Kurzprofil
+                  </th>
                   <th className="px-5 py-3 text-right font-medium">Erfahrung</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredDocuments.map((document) => {
                   const extraction = document.kind === "cv" ? document.extraction : null;
+                  const profileBullets = buildGermanProfileBullets(extraction);
                   const fullName =
                     extraction && "full_name" in extraction && extraction.full_name
                       ? extraction.full_name
@@ -271,8 +472,10 @@ function ApplicationsPage() {
                     .map((part) => part[0])
                     .join("")
                     .toUpperCase();
-                  const skills = extraction && "skills" in extraction ? extraction.skills : [];
-                  const yearsExperience = extraction && "years_experience" in extraction ? extraction.years_experience : null;
+                  const yearsExperience =
+                    extraction && "years_experience" in extraction
+                      ? extraction.years_experience
+                      : null;
 
                   return (
                     <tr
@@ -289,7 +492,8 @@ function ApplicationsPage() {
                             <div className="font-medium text-foreground">{fullName}</div>
                             <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                               <Mail className="h-3 w-3" />
-                              {(extraction && "email" in extraction && extraction.email) || "Keine E-Mail erkannt"}
+                              {(extraction && "email" in extraction && extraction.email) ||
+                                "Keine E-Mail hinterlegt"}
                             </div>
                           </div>
                         </div>
@@ -307,7 +511,9 @@ function ApplicationsPage() {
                                 Aktualisiere...
                               </div>
                             ) : (
-                              <SelectValue />
+                              <StatusPill tone={getStatusTone(document.application_status)}>
+                                {getStatusLabel(document.application_status)}
+                              </StatusPill>
                             )}
                           </SelectTrigger>
                           <SelectContent>
@@ -322,29 +528,26 @@ function ApplicationsPage() {
                       <td className="hidden px-5 py-4 text-muted-foreground md:table-cell">
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
-                          {(extraction && "location" in extraction && extraction.location) || "Kein Standort"}
+                          {(extraction && "location" in extraction && extraction.location) ||
+                            "Kein Standort"}
                         </span>
                       </td>
                       <td className="hidden max-w-md px-5 py-4 text-muted-foreground lg:table-cell">
-                        <p className="line-clamp-2">
-                          {(extraction && "summary" in extraction && extraction.summary) ||
-                            document.error ||
-                            "Noch keine Zusammenfassung verfuegbar."}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex max-w-xs flex-wrap gap-1">
-                          {skills.slice(0, 3).map((skill) => (
-                            <StatusPill key={skill} tone="info">
-                              {skill}
-                            </StatusPill>
+                        <ul className="space-y-1 text-sm text-muted-foreground">
+                          {profileBullets.slice(0, 2).map((bullet) => (
+                            <li key={bullet} className="line-clamp-1">
+                              - {bullet}
+                            </li>
                           ))}
-                          {skills.length > 3 && <StatusPill>+{skills.length - 3}</StatusPill>}
-                          {skills.length === 0 && <StatusPill tone="neutral">{getVerarbeitungsstatusLabel(document.status)}</StatusPill>}
-                        </div>
+                          {profileBullets.length === 0 ? (
+                            <li>- Noch kein Kurzprofil verfuegbar.</li>
+                          ) : null}
+                        </ul>
                       </td>
                       <td className="whitespace-nowrap px-5 py-4 text-right font-medium text-foreground">
-                        {yearsExperience == null ? "-" : `${yearsExperience} J.`}
+                        {yearsExperience == null
+                          ? getVerarbeitungsstatusLabel(document.status)
+                          : `${yearsExperience} J.`}
                       </td>
                     </tr>
                   );
@@ -355,15 +558,22 @@ function ApplicationsPage() {
         )}
       </div>
 
-      <Sheet open={!!selectedDocument} onOpenChange={(open) => !open && setSelectedDocumentId(null)}>
+      <Sheet
+        open={!!selectedDocument}
+        onOpenChange={(open) => !open && setSelectedDocumentId(null)}
+      >
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
           <SheetHeader>
             <SheetTitle>
-              {(selectedExtraction && "full_name" in selectedExtraction && selectedExtraction.full_name) ||
+              {(selectedExtraction &&
+                "full_name" in selectedExtraction &&
+                selectedExtraction.full_name) ||
                 selectedDocument?.filename ||
                 "Kandidat:in"}
             </SheetTitle>
-            <SheetDescription>Mehr Details zu Staerken, Schwaechen und Teamabgleich.</SheetDescription>
+            <SheetDescription>
+              Mehr Details zu Staerken, Schwaechen und Teamabgleich.
+            </SheetDescription>
           </SheetHeader>
 
           {selectedExtraction && selectedInsights ? (
@@ -372,9 +582,6 @@ function ApplicationsPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-foreground">Bewerbungsstatus</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {terminalStatusHint}
-                    </p>
                   </div>
                   <StatusPill tone={getStatusTone(selectedDocument.application_status)}>
                     {getStatusLabel(selectedDocument.application_status)}
@@ -387,7 +594,9 @@ function ApplicationsPage() {
                     disabled={statusUpdatingId === selectedDocument.id}
                   >
                     <SelectTrigger className="max-w-xs">
-                      <SelectValue />
+                      <StatusPill tone={getStatusTone(selectedDocument.application_status)}>
+                        {getStatusLabel(selectedDocument.application_status)}
+                      </StatusPill>
                     </SelectTrigger>
                     <SelectContent>
                       {statusOptions.map((option) => (
@@ -402,9 +611,42 @@ function ApplicationsPage() {
 
               <section className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">Kurzprofil</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {selectedExtraction.summary || "Noch keine Zusammenfassung verfuegbar."}
-                </p>
+                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                  {buildGermanProfileBullets(selectedExtraction).map((bullet) => (
+                    <li key={bullet}>- {bullet}</li>
+                  ))}
+                  <li>- E-Mail: {selectedExtraction.email || "Keine E-Mail hinterlegt"}.</li>
+                </ul>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="w-full max-w-md space-y-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      E-Mail manuell pflegen
+                    </label>
+                    <Input
+                      type="email"
+                      value={candidateEmail}
+                      onChange={(event) => setCandidateEmail(event.target.value)}
+                      placeholder="name@beispiel.de"
+                      disabled={emailUpdatingId === selectedDocument.id}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleCandidateEmailSave()}
+                    disabled={
+                      emailUpdatingId === selectedDocument.id || candidateEmail.trim().length === 0
+                    }
+                  >
+                    {emailUpdatingId === selectedDocument.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Speichere...
+                      </>
+                    ) : (
+                      "E-Mail speichern"
+                    )}
+                  </Button>
+                </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {selectedExtraction.skills.slice(0, 8).map((skill) => (
                     <StatusPill key={skill} tone="info">
@@ -416,24 +658,32 @@ function ApplicationsPage() {
 
               <section className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-sm font-semibold text-foreground">Staerken</h3>
-                <div className="mt-3 space-y-2">
+                <ul className="mt-3 space-y-2">
                   {selectedInsights.strengths.map((item) => (
-                    <div key={item} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
-                      {item}
-                    </div>
+                    <li
+                      key={item}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                    >
+                      - {item}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </section>
 
               <section className="rounded-xl border border-border bg-card p-4">
-                <h3 className="text-sm font-semibold text-foreground">Schwaechen / offene Punkte</h3>
-                <div className="mt-3 space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Schwaechen / offene Punkte
+                </h3>
+                <ul className="mt-3 space-y-2">
                   {selectedInsights.weaknesses.map((item) => (
-                    <div key={item} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
-                      {item}
-                    </div>
+                    <li
+                      key={item}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                    >
+                      - {item}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </section>
 
               <section className="rounded-xl border border-border bg-card p-4">
@@ -441,14 +691,27 @@ function ApplicationsPage() {
                 <div className="mt-3 space-y-3">
                   {selectedInsights.teamMatches.length > 0 ? (
                     selectedInsights.teamMatches.map((match) => (
-                      <div key={match.teamId} className="rounded-lg border border-border bg-background p-3">
+                      <div
+                        key={match.teamId}
+                        className="rounded-lg border border-border bg-background p-3"
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <div className="font-medium text-foreground">{match.teamName}</div>
-                          <StatusPill tone={match.score >= 50 ? "success" : match.score >= 25 ? "warning" : "neutral"}>
+                          <StatusPill
+                            tone={
+                              match.score >= 50
+                                ? "success"
+                                : match.score >= 25
+                                  ? "warning"
+                                  : "neutral"
+                            }
+                          >
                             {match.score}% Passung
                           </StatusPill>
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground">{match.summary}</p>
+                        <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+                          <li>- {match.summary}</li>
+                        </ul>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {match.matchedAreas.length > 0 ? (
                             match.matchedAreas.map((item) => (
@@ -457,7 +720,9 @@ function ApplicationsPage() {
                               </StatusPill>
                             ))
                           ) : (
-                            <StatusPill tone="neutral">Noch keine klaren Ueberschneidungen</StatusPill>
+                            <StatusPill tone="neutral">
+                              Noch keine klaren Ueberschneidungen
+                            </StatusPill>
                           )}
                         </div>
                       </div>
@@ -486,6 +751,42 @@ function ApplicationsPage() {
         statusLabel={statusLabel}
         error={error}
       />
+
+      <AlertDialog
+        open={isGdprDialogOpen}
+        onOpenChange={(open) => {
+          setIsGdprDialogOpen(open);
+          if (!open && !isDeletingCandidate) {
+            setGdprCandidateName(null);
+            setGdprDocumentId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dsgvo konform loeschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {gdprCandidateName
+                ? `${gdprCandidateName} hat einen finalen Demo-Status erhalten.`
+                : "Dieser Kandidat hat einen finalen Demo-Status erhalten."}{" "}
+              Bei Bestaetigung wird der Kandidat aus der Kandidatenliste entfernt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingCandidate}>Nein</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleDeleteCandidate()}>
+              {isDeletingCandidate ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loesche...
+                </>
+              ) : (
+                "Ja"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

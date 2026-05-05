@@ -69,7 +69,7 @@ export function useDocumentUpload({
   onSettled,
 }: {
   kind: UploadKind;
-  onUploaded?: (documentId: string) => void;
+  onUploaded?: (document: UploadedDocument) => void;
   onSettled?: (document: UploadedDocument) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -141,7 +141,11 @@ export function useDocumentUpload({
             setActiveDocumentId(null);
             setIsIndeterminate(false);
             setProgress(100);
-            setStatusLabel(document.status === "extracted" ? `${activeEntityLabel} eingetragen` : "Upload fehlgeschlagen");
+            setStatusLabel(
+              document.status === "extracted"
+                ? `${activeEntityLabel} eingetragen`
+                : "Upload fehlgeschlagen",
+            );
             if (document.status === "failed" && document.error) {
               setError(document.error);
             }
@@ -153,7 +157,11 @@ export function useDocumentUpload({
 
         if (isMountedRef.current) {
           setIsIndeterminate(true);
-          setStatusLabel(document.status === "processing" ? `Trage ${activeEntityLabel} ein...` : "Warte auf Verarbeitung...");
+          setStatusLabel(
+            document.status === "processing"
+              ? `Trage ${activeEntityLabel} ein...`
+              : "Warte auf Verarbeitung...",
+          );
         }
 
         await sleep(2000);
@@ -161,7 +169,7 @@ export function useDocumentUpload({
 
       throw new Error("Die Extraktion dauert ungewohnlich lange. Bitte Status erneut prufen.");
     },
-    [hidePopupLater, onSettled],
+    [activeEntityLabel, hidePopupLater, onSettled],
   );
 
   const handleFileChange = useCallback(
@@ -223,10 +231,16 @@ export function useDocumentUpload({
           return;
         }
 
+        const uploadedDocument = await getDocument({
+          data: {
+            id: result.documentId,
+          },
+        });
+
         setActiveDocumentId(result.documentId);
         setProgress(100);
         setStatusLabel(`Trage ${activeEntityLabel} ein...`);
-        onUploaded?.(result.documentId);
+        onUploaded?.(uploadedDocument);
 
         void extractDocument({
           data: {
@@ -241,7 +255,11 @@ export function useDocumentUpload({
             setActiveDocumentId(null);
             setIsIndeterminate(false);
             setProgress(100);
-            setError(pollError instanceof Error ? pollError.message : "Upload konnte nicht abgeschlossen werden.");
+            setError(
+              pollError instanceof Error
+                ? pollError.message
+                : "Upload konnte nicht abgeschlossen werden.",
+            );
             setStatusLabel("Upload fehlgeschlagen");
             hidePopupLater(6000);
           }
@@ -261,7 +279,7 @@ export function useDocumentUpload({
         resetInput();
       }
     },
-    [hidePopupLater, kind, onUploaded, pollDocument, resetInput, showPopup],
+    [activeEntityLabel, hidePopupLater, kind, onUploaded, pollDocument, resetInput, showPopup],
   );
 
   return {

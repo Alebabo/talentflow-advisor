@@ -23,9 +23,12 @@ function estimateBase64Size(base64: string) {
 export const uploadDocumentInputSchema = z.object({
   kind: documentKindSchema,
   filename: z.string().trim().min(1).max(255),
-  fileBase64: z.string().min(1).refine((value) => estimateBase64Size(value) <= MAX_FILE_SIZE_BYTES, {
-    message: "Datei darf maximal 10 MB groß sein.",
-  }),
+  fileBase64: z
+    .string()
+    .min(1)
+    .refine((value) => estimateBase64Size(value) <= MAX_FILE_SIZE_BYTES, {
+      message: "Datei darf maximal 10 MB groß sein.",
+    }),
   mimeType: z.enum(allowedMimeTypes),
 });
 
@@ -88,7 +91,14 @@ export type JobExtractionPayload = {
 };
 
 export type StoredDocument = {
-  application_status: "new" | "screening" | "interview" | "offer" | "hired" | "rejected" | "withdrawn";
+  application_status:
+    | "new"
+    | "screening"
+    | "interview"
+    | "offer"
+    | "hired"
+    | "rejected"
+    | "withdrawn";
   application_status_updated_at: string;
   id: string;
   user_id: string;
@@ -129,11 +139,7 @@ export class ExtractionError extends Error {
   code: "RATE_LIMIT" | "CREDITS" | "UNAUTHORIZED" | "NOT_FOUND" | "INVALID_RESPONSE" | "INTERNAL";
   status: number;
 
-  constructor(
-    code: ExtractionError["code"],
-    message: string,
-    status = 500,
-  ) {
+  constructor(code: ExtractionError["code"], message: string, status = 500) {
     super(message);
     this.name = "ExtractionError";
     this.code = code;
@@ -195,24 +201,26 @@ export function createRequestSupabaseClient(request: Request) {
   });
 }
 
-export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(async ({ next, request }) => {
-  const supabase = createRequestSupabaseClient(request);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
+  async ({ next, request }) => {
+    const supabase = createRequestSupabaseClient(request);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    throw new ExtractionError("UNAUTHORIZED", "Anmeldung erforderlich.", 401);
-  }
+    if (error || !user) {
+      throw new ExtractionError("UNAUTHORIZED", "Anmeldung erforderlich.", 401);
+    }
 
-  return next({
-    context: {
-      supabase,
-      user,
-    } satisfies AuthContext,
-  });
-});
+    return next({
+      context: {
+        supabase,
+        user,
+      } satisfies AuthContext,
+    });
+  },
+);
 
 function sanitizeFileName(filename: string) {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
@@ -245,6 +253,8 @@ const cvKeywords = [
   "lebenslauf",
   "curriculum vitae",
   "cv ",
+  "cv_",
+  "resume",
   "berufserfahrung",
   "ausbildung",
   "kenntnisse",
@@ -255,9 +265,13 @@ const cvKeywords = [
 ];
 
 const jobKeywords = [
+  "job",
+  "stelle",
+  "rollenprofil",
   "stellenbeschreibung",
   "stellenanzeige",
   "jobbeschreibung",
+  "ausschreibung",
   "deine aufgaben",
   "ihre aufgaben",
   "anforderungen",
@@ -265,6 +279,7 @@ const jobKeywords = [
   "wir bieten",
   "benefits",
   "bewerben",
+  "m/w/d",
 ];
 
 function countKeywordHits(source: string, keywords: string[]) {
@@ -281,6 +296,31 @@ function classifyByHeuristics({
   const normalizedFilename = filename.toLowerCase();
   const normalizedText = (text ?? "").toLowerCase();
   const combined = `${normalizedFilename}\n${normalizedText}`;
+
+  if (
+    normalizedFilename.includes("lebenslauf") ||
+    normalizedFilename.includes("curriculum-vitae")
+  ) {
+    return {
+      detectedKind: "cv",
+      confidence: "high",
+      reason: "Der Dateiname weist eindeutig auf einen CV hin.",
+    };
+  }
+
+  if (
+    normalizedFilename.includes("job") ||
+    normalizedFilename.includes("stelle") ||
+    normalizedFilename.includes("stellenbeschreibung") ||
+    normalizedFilename.includes("stellenanzeige")
+  ) {
+    return {
+      detectedKind: "job_description",
+      confidence: "high",
+      reason: "Der Dateiname weist eindeutig auf eine Jobbeschreibung hin.",
+    };
+  }
+
   const cvHits = countKeywordHits(combined, cvKeywords);
   const jobHits = countKeywordHits(combined, jobKeywords);
 
@@ -326,75 +366,86 @@ async function classifyPdfWithGemini({
   filename: string;
   mimeType: string;
 }) {
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gemini-2.5-pro",
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Klassifiziere Recruiting-Dokumente strikt als cv, job_description oder unknown. Antworte nur ueber den Tool-Call.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Ordne dieses Dokument ein. Dateiname: ${filename}`,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${buffer.toString("base64")}`,
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gemini-2.5-pro",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Klassifiziere Recruiting-Dokumente strikt als cv, job_description oder unknown. Antworte nur ueber den Tool-Call.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Ordne dieses Dokument ein. Dateiname: ${filename}`,
               },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType};base64,${buffer.toString("base64")}`,
+                },
+              },
+            ],
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "classify_document_kind",
+              description: "Klassifiziert ein Dokument als Lebenslauf oder Jobbeschreibung.",
+              parameters: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  detected_kind: { type: "string", enum: ["cv", "job_description", "unknown"] },
+                  confidence: { type: "string", enum: ["high", "low"] },
+                  reason: { type: "string" },
+                },
+                required: ["detected_kind", "confidence", "reason"],
+              },
+              strict: true,
             },
-          ],
-        },
-      ],
-      tools: [
-        {
+          },
+        ],
+        tool_choice: {
           type: "function",
           function: {
             name: "classify_document_kind",
-            description: "Klassifiziert ein Dokument als Lebenslauf oder Jobbeschreibung.",
-            parameters: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                detected_kind: { type: "string", enum: ["cv", "job_description", "unknown"] },
-                confidence: { type: "string", enum: ["high", "low"] },
-                reason: { type: "string" },
-              },
-              required: ["detected_kind", "confidence", "reason"],
-            },
-            strict: true,
           },
         },
-      ],
-      tool_choice: {
-        type: "function",
-        function: {
-          name: "classify_document_kind",
-        },
-      },
-    }),
-  });
+      }),
+    },
+  );
 
   if (!response.ok) {
-    throw new ExtractionError("INTERNAL", "Dokumenttyp konnte fuer PDF nicht validiert werden.", response.status);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Dokumenttyp konnte fuer PDF nicht validiert werden.",
+      response.status,
+    );
   }
 
   const payload = await response.json();
   const rawArguments = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
 
   if (!rawArguments) {
-    throw new ExtractionError("INVALID_RESPONSE", "Die Dokumenttyp-Pruefung hat kein Ergebnis geliefert.", 502);
+    throw new ExtractionError(
+      "INVALID_RESPONSE",
+      "Die Dokumenttyp-Pruefung hat kein Ergebnis geliefert.",
+      502,
+    );
   }
 
   const parsed = JSON.parse(rawArguments) as {
@@ -435,16 +486,28 @@ export async function verifyUploadMatchesExpectedKind({
     text: heuristicText,
   });
 
-  if (mimeType === "application/pdf" && apiKey) {
-    classification = await classifyPdfWithGemini({
-      apiKey,
-      buffer,
-      filename,
-      mimeType,
-    });
+  if (mimeType === "application/pdf" && classification.detectedKind === "unknown" && apiKey) {
+    try {
+      classification = await classifyPdfWithGemini({
+        apiKey,
+        buffer,
+        filename,
+        mimeType,
+      });
+    } catch {
+      classification = classifyByHeuristics({
+        filename,
+        text: null,
+      });
+    }
   }
 
-  if (classification.detectedKind !== "unknown" && classification.detectedKind !== expectedKind) {
+  const isConfidentMismatch =
+    classification.detectedKind !== "unknown" &&
+    classification.detectedKind !== expectedKind &&
+    (expectedKind === "cv" || classification.confidence === "high");
+
+  if (isConfidentMismatch) {
     const expectedLabel = expectedKind === "cv" ? "CV" : "Jobbeschreibung";
     const detectedLabel = classification.detectedKind === "cv" ? "CV" : "Jobbeschreibung";
     throw new ExtractionError(
@@ -566,8 +629,7 @@ type GatewayMessage =
   | {
       role: "user";
       content: Array<
-        | { type: "text"; text: string }
-        | { type: "image_url"; image_url: { url: string } }
+        { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }
       >;
     };
 
@@ -632,50 +694,65 @@ async function callGeminiOpenAICompat({
     });
   }
 
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gemini-2.5-pro",
-      temperature: 0,
-      messages,
-      tools: [
-        {
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gemini-2.5-pro",
+        temperature: 0,
+        messages,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: toolName,
+              description:
+                kind === "cv"
+                  ? "Extrahiert strukturierte Informationen aus einem Lebenslauf."
+                  : "Extrahiert strukturierte Informationen aus einer Jobbeschreibung.",
+              parameters: kind === "cv" ? cvToolSchema : jobToolSchema,
+              strict: true,
+            },
+          },
+        ],
+        tool_choice: {
           type: "function",
           function: {
             name: toolName,
-            description:
-              kind === "cv"
-                ? "Extrahiert strukturierte Informationen aus einem Lebenslauf."
-                : "Extrahiert strukturierte Informationen aus einer Jobbeschreibung.",
-            parameters: kind === "cv" ? cvToolSchema : jobToolSchema,
-            strict: true,
           },
         },
-      ],
-      tool_choice: {
-        type: "function",
-        function: {
-          name: toolName,
-        },
-      },
-    }),
-  });
+      }),
+    },
+  );
 
   if (!response.ok) {
     const errorBody = await response.text();
     if (response.status === 429) {
-      throw new ExtractionError("RATE_LIMIT", "Die KI-Extraktion ist gerade rate-limitiert. Bitte gleich noch einmal versuchen.", 429);
+      throw new ExtractionError(
+        "RATE_LIMIT",
+        "Die KI-Extraktion ist gerade rate-limitiert. Bitte gleich noch einmal versuchen.",
+        429,
+      );
     }
 
     if (response.status === 402) {
-      throw new ExtractionError("CREDITS", "Für die KI-Extraktion sind aktuell keine Credits verfügbar.", 402);
+      throw new ExtractionError(
+        "CREDITS",
+        "Für die KI-Extraktion sind aktuell keine Credits verfügbar.",
+        402,
+      );
     }
 
-    throw new ExtractionError("INTERNAL", `Die KI-Extraktion ist fehlgeschlagen (${response.status}). ${errorBody}`.trim(), response.status);
+    throw new ExtractionError(
+      "INTERNAL",
+      `Die KI-Extraktion ist fehlgeschlagen (${response.status}). ${errorBody}`.trim(),
+      response.status,
+    );
   }
 
   const payload = await response.json();
@@ -683,13 +760,21 @@ async function callGeminiOpenAICompat({
   const rawArguments = toolCall?.function?.arguments;
 
   if (!rawArguments) {
-    throw new ExtractionError("INVALID_RESPONSE", "Die KI hat kein strukturiertes Extraktionsergebnis geliefert.", 502);
+    throw new ExtractionError(
+      "INVALID_RESPONSE",
+      "Die KI hat kein strukturiertes Extraktionsergebnis geliefert.",
+      502,
+    );
   }
 
   try {
     return JSON.parse(rawArguments) as CvExtractionPayload | JobExtractionPayload;
   } catch {
-    throw new ExtractionError("INVALID_RESPONSE", "Die KI-Antwort konnte nicht als Tool-Argument gelesen werden.", 502);
+    throw new ExtractionError(
+      "INVALID_RESPONSE",
+      "Die KI-Antwort konnte nicht als Tool-Argument gelesen werden.",
+      502,
+    );
   }
 }
 
@@ -722,7 +807,11 @@ export async function insertDocumentRow({
   });
 
   if (error) {
-    throw new ExtractionError("INTERNAL", "Dokument konnte nicht in der Datenbank gespeichert werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Dokument konnte nicht in der Datenbank gespeichert werden.",
+      500,
+    );
   }
 }
 
@@ -762,7 +851,11 @@ async function updateDocumentStatus(
     .eq("id", documentId);
 
   if (error) {
-    throw new ExtractionError("INTERNAL", "Dokumentenstatus konnte nicht aktualisiert werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Dokumentenstatus konnte nicht aktualisiert werden.",
+      500,
+    );
   }
 }
 
@@ -795,13 +888,16 @@ async function persistExtraction({
 }) {
   if (document.kind === "cv") {
     const payload = extracted as CvExtractionPayload;
-    const { error } = await supabase.from("cv_extractions").upsert({
-      document_id: document.id,
-      ...payload,
-      raw_json: payload,
-    }, {
-      onConflict: "document_id",
-    });
+    const { error } = await supabase.from("cv_extractions").upsert(
+      {
+        document_id: document.id,
+        ...payload,
+        raw_json: payload,
+      },
+      {
+        onConflict: "document_id",
+      },
+    );
 
     if (error) {
       throw new ExtractionError("INTERNAL", "CV-Extraktion konnte nicht gespeichert werden.", 500);
@@ -811,13 +907,16 @@ async function persistExtraction({
   }
 
   const payload = extracted as JobExtractionPayload;
-  const { error } = await supabase.from("job_extractions").upsert({
-    document_id: document.id,
-    ...payload,
-    raw_json: payload,
-  }, {
-    onConflict: "document_id",
-  });
+  const { error } = await supabase.from("job_extractions").upsert(
+    {
+      document_id: document.id,
+      ...payload,
+      raw_json: payload,
+    },
+    {
+      onConflict: "document_id",
+    },
+  );
 
   if (error) {
     throw new ExtractionError("INTERNAL", "Job-Extraktion konnte nicht gespeichert werden.", 500);
@@ -850,7 +949,11 @@ export async function runDocumentExtraction({
     .select("*");
 
   if (transitionError) {
-    throw new ExtractionError("INTERNAL", "Dokumentenstatus konnte nicht aktualisiert werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Dokumentenstatus konnte nicht aktualisiert werden.",
+      500,
+    );
   }
 
   if (!transitionedRows || transitionedRows.length === 0) {
@@ -858,10 +961,16 @@ export async function runDocumentExtraction({
   }
 
   try {
-    const { data, error } = await supabase.storage.from("documents").download(document.storage_path);
+    const { data, error } = await supabase.storage
+      .from("documents")
+      .download(document.storage_path);
 
     if (error || !data) {
-      throw new ExtractionError("INTERNAL", "Datei konnte nicht aus dem Storage geladen werden.", 500);
+      throw new ExtractionError(
+        "INTERNAL",
+        "Datei konnte nicht aus dem Storage geladen werden.",
+        500,
+      );
     }
 
     const arrayBuffer = await data.arrayBuffer();
@@ -881,7 +990,8 @@ export async function runDocumentExtraction({
     await updateDocumentStatus(supabase, documentId, "extracted", null);
     return await getDocumentWithExtraction(supabase, documentId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unbekannter Fehler bei der Extraktion.";
+    const message =
+      error instanceof Error ? error.message : "Unbekannter Fehler bei der Extraktion.";
     await updateDocumentStatus(supabase, documentId, "failed", message);
     throw error;
   }
@@ -930,10 +1040,7 @@ export async function listDocumentsWithExtraction({
   supabase: SupabaseClient;
   kind?: DocumentKind;
 }) {
-  let query = supabase
-    .from("documents")
-    .select("*")
-    .order("created_at", { ascending: false });
+  let query = supabase.from("documents").select("*").order("created_at", { ascending: false });
 
   if (kind) {
     query = query.eq("kind", kind);
@@ -946,15 +1053,27 @@ export async function listDocumentsWithExtraction({
   }
 
   const documents = data ?? [];
-  const cvIds = documents.filter((document) => document.kind === "cv").map((document) => document.id);
-  const jobIds = documents.filter((document) => document.kind === "job_description").map((document) => document.id);
+  const cvIds = documents
+    .filter((document) => document.kind === "cv")
+    .map((document) => document.id);
+  const jobIds = documents
+    .filter((document) => document.kind === "job_description")
+    .map((document) => document.id);
 
   const [cvResult, jobResult] = await Promise.all([
     cvIds.length
-      ? supabase.from("cv_extractions").select("*").in("document_id", cvIds).returns<CvExtractionRow[]>()
+      ? supabase
+          .from("cv_extractions")
+          .select("*")
+          .in("document_id", cvIds)
+          .returns<CvExtractionRow[]>()
       : Promise.resolve({ data: [], error: null }),
     jobIds.length
-      ? supabase.from("job_extractions").select("*").in("document_id", jobIds).returns<JobExtractionRow[]>()
+      ? supabase
+          .from("job_extractions")
+          .select("*")
+          .in("document_id", jobIds)
+          .returns<JobExtractionRow[]>()
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -980,10 +1099,16 @@ export async function listDocumentsWithExtraction({
 
 export async function deleteStoredDocument(supabase: SupabaseClient, documentId: string) {
   const document = await getDocumentRecord(supabase, documentId);
-  const { error: storageError } = await supabase.storage.from("documents").remove([document.storage_path]);
+  const { error: storageError } = await supabase.storage
+    .from("documents")
+    .remove([document.storage_path]);
 
   if (storageError) {
-    throw new ExtractionError("INTERNAL", "Datei konnte nicht aus dem Storage gelöscht werden.", 500);
+    throw new ExtractionError(
+      "INTERNAL",
+      "Datei konnte nicht aus dem Storage gelöscht werden.",
+      500,
+    );
   }
 
   const { error } = await supabase.from("documents").delete().eq("id", documentId);

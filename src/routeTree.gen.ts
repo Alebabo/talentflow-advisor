@@ -14,6 +14,7 @@ import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as LeitfadenRouteImport } from './routes/leitfaden'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ApplicationsRouteImport } from './routes/applications'
+import { Route as AntwortenLeitfadenRouteImport } from './routes/antworten-leitfaden'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -41,6 +42,11 @@ const ApplicationsRoute = ApplicationsRouteImport.update({
   path: '/applications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AntwortenLeitfadenRoute = AntwortenLeitfadenRouteImport.update({
+  id: '/antworten-leitfaden',
+  path: '/antworten-leitfaden',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +55,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/antworten-leitfaden': typeof AntwortenLeitfadenRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/leitfaden': typeof LeitfadenRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/antworten-leitfaden': typeof AntwortenLeitfadenRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/leitfaden': typeof LeitfadenRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/antworten-leitfaden': typeof AntwortenLeitfadenRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
   '/leitfaden': typeof LeitfadenRoute
@@ -76,16 +85,25 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/antworten-leitfaden'
     | '/applications'
     | '/jobs'
     | '/leitfaden'
     | '/teams'
     | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/applications' | '/jobs' | '/leitfaden' | '/teams' | '/workspace'
+  to:
+    | '/'
+    | '/antworten-leitfaden'
+    | '/applications'
+    | '/jobs'
+    | '/leitfaden'
+    | '/teams'
+    | '/workspace'
   id:
     | '__root__'
     | '/'
+    | '/antworten-leitfaden'
     | '/applications'
     | '/jobs'
     | '/leitfaden'
@@ -95,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AntwortenLeitfadenRoute: typeof AntwortenLeitfadenRoute
   ApplicationsRoute: typeof ApplicationsRoute
   JobsRoute: typeof JobsRoute
   LeitfadenRoute: typeof LeitfadenRoute
@@ -139,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplicationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/antworten-leitfaden': {
+      id: '/antworten-leitfaden'
+      path: '/antworten-leitfaden'
+      fullPath: '/antworten-leitfaden'
+      preLoaderRoute: typeof AntwortenLeitfadenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -151,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AntwortenLeitfadenRoute: AntwortenLeitfadenRoute,
   ApplicationsRoute: ApplicationsRoute,
   JobsRoute: JobsRoute,
   LeitfadenRoute: LeitfadenRoute,

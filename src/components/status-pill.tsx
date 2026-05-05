@@ -12,7 +12,7 @@ export function StatusPill({
   const tones: Record<string, string> = {
     neutral: "bg-muted text-muted-foreground",
     success: "bg-success/10 text-success",
-    warning: "bg-warning/15 text-warning-foreground",
+    warning: "border border-warning/20 bg-warning/12 text-warning",
     info: "bg-info/10 text-info",
     primary: "bg-primary/10 text-primary",
   };

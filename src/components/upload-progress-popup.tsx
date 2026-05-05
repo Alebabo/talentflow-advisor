@@ -28,9 +28,7 @@ export function UploadProgressPopup({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-foreground">{title}</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {error || statusLabel}
-            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{error || statusLabel}</div>
           </div>
         </div>
 
