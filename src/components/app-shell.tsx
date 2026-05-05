@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import metafinanzLogo from "@/assets/metafinanz-logo.jpg";
 
 const nav = [
   { to: "/", label: "Übersicht", icon: LayoutGrid },
