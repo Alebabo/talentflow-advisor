@@ -68,45 +68,72 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.99 0.004 250);
-  --foreground: oklch(0.21 0.04 256);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.04 256);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.04 256);
-  --primary: oklch(0.46 0.16 255);
-  --primary-foreground: oklch(0.99 0.004 250);
-  --secondary: oklch(0.96 0.012 250);
-  --secondary-foreground: oklch(0.28 0.06 256);
-  --muted: oklch(0.965 0.008 250);
-  --muted-foreground: oklch(0.52 0.03 256);
-  --accent: oklch(0.94 0.03 250);
-  --accent-foreground: oklch(0.32 0.09 255);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.99 0.004 250);
-  --border: oklch(0.92 0.012 250);
-  --input: oklch(0.94 0.012 250);
-  --ring: oklch(0.6 0.12 255);
-  --success: oklch(0.62 0.14 155);
-  --success-foreground: oklch(0.99 0.004 150);
-  --warning: oklch(0.74 0.14 75);
-  --warning-foreground: oklch(0.25 0.06 75);
-  --info: oklch(0.65 0.12 230);
-  --shadow-soft: 0 1px 2px oklch(0.21 0.04 256 / 0.04), 0 4px 16px oklch(0.21 0.04 256 / 0.06);
-  --shadow-card: 0 1px 3px oklch(0.21 0.04 256 / 0.05), 0 8px 24px -8px oklch(0.21 0.04 256 / 0.08);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.005 250);
-  --sidebar-foreground: oklch(0.28 0.04 256);
-  --sidebar-primary: oklch(0.46 0.16 255);
-  --sidebar-primary-foreground: oklch(0.99 0.004 250);
-  --sidebar-accent: oklch(0.95 0.018 250);
-  --sidebar-accent-foreground: oklch(0.32 0.09 255);
-  --sidebar-border: oklch(0.92 0.012 250);
-  --sidebar-ring: oklch(0.6 0.12 255);
+
+  /* metafinanz brand palette */
+  --brand-night: #1f004c;        /* Night Blue */
+  --brand-nature: #074440;       /* Nature Green */
+  --brand-purple: #854bff;       /* Sky Purple */
+  --brand-spark: #f93822;        /* Sparky Red */
+  --brand-green: #64e100;        /* Energy Green */
+  --brand-yellow: #fde600;       /* Lightning Yellow */
+  --brand-coral: #ffbeaa;        /* Sunset Coral */
+  --brand-interaction: #00f0c5;  /* Interaction Teal */
+  --brand-glow: #fffcd9;         /* Glowing White */
+
+  /* Gradients */
+  --gradient-spectral: linear-gradient(90deg, #64e100 0%, #fde600 50%, #ffbeaa 100%);
+  --gradient-spectral-soft: linear-gradient(135deg, #64e10022 0%, #fde60033 45%, #ffbeaa55 100%);
+  --gradient-green-yellow: linear-gradient(90deg, #64e100, #fde600);
+  --gradient-yellow-coral: linear-gradient(90deg, #fde600, #ffbeaa);
+  --gradient-night: linear-gradient(180deg, #1f004c 0%, #2a0a66 100%);
+
+  /* Semantic tokens */
+  --background: #ffffff;
+  --foreground: #1f004c;
+  --card: #ffffff;
+  --card-foreground: #1f004c;
+  --popover: #ffffff;
+  --popover-foreground: #1f004c;
+
+  --primary: #1f004c;            /* Night Blue carries the brand on UI */
+  --primary-foreground: #fffcd9;
+  --secondary: #f4eeff;          /* tinted purple wash */
+  --secondary-foreground: #1f004c;
+  --muted: #f6f3fb;
+  --muted-foreground: #5a4a7a;
+  --accent: #efe6ff;              /* Sky Purple wash */
+  --accent-foreground: #3a1d8a;
+
+  --destructive: #f93822;         /* Sparky Red */
+  --destructive-foreground: #ffffff;
+  --border: #ece6f5;
+  --input: #f1ecf8;
+  --ring: #854bff;
+
+  --success: #1f7a1f;             /* readable success on light */
+  --success-foreground: #ffffff;
+  --warning: #8a6a00;
+  --warning-foreground: #fffcd9;
+  --info: #0a8e76;                /* derived from interaction teal */
+
+  --shadow-soft: 0 1px 2px rgba(31,0,76,0.04), 0 6px 18px rgba(31,0,76,0.06);
+  --shadow-card: 0 1px 3px rgba(31,0,76,0.05), 0 12px 28px -10px rgba(31,0,76,0.10);
+  --shadow-glow: 0 8px 32px -8px rgba(133,75,255,0.35);
+
+  --chart-1: #854bff;
+  --chart-2: #00f0c5;
+  --chart-3: #64e100;
+  --chart-4: #fde600;
+  --chart-5: #ffbeaa;
+
+  --sidebar: #1f004c;
+  --sidebar-foreground: #fffcd9;
+  --sidebar-primary: #854bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255,252,217,0.08);
+  --sidebar-accent-foreground: #fffcd9;
+  --sidebar-border: rgba(255,252,217,0.10);
+  --sidebar-ring: #854bff;
 }
 
 .dark {
