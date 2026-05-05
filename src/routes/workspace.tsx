@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
+import { AuthRequiredCard } from "@/components/auth-required-card";
 import { StatusPill } from "@/components/status-pill";
+import { listDocuments } from "@/extraction.functions";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,450 +14,393 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  applications,
-  jobs,
-  teams,
-  interviewGuide,
-  top10Questions,
-  softSkillQuestions,
-  behaviouralQuestions,
-  cultureFitQuestions,
-  scenarios,
-  positiveSignals,
-  openRisks,
-  interviewPanel,
-} from "@/lib/mock-data";
-import {
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  ShieldCheck,
-  ScrollText,
-  Users,
-  MessageSquare,
-  Lightbulb,
-  Clock,
-  Loader2,
-} from "lucide-react";
+import { ShieldCheck, Sparkles } from "lucide-react";
+
+type GuideData = {
+  applicantName: string;
+  jobTitle: string;
+  candidateSummary: string;
+  roleSummary: string;
+  matchingSkills: string[];
+  missingSkills: string[];
+  focusQuestions: string[];
+  experienceHighlights: string[];
+  recruiterSignals: string[];
+  teamSignals: string[];
+};
 
 export const Route = createFileRoute("/workspace")({
+  loader: async () => {
+    try {
+      const [applications, jobs] = await Promise.all([
+        listDocuments({ data: { kind: "cv" } }),
+        listDocuments({ data: { kind: "job_description" } }),
+      ]);
+
+      return {
+        applications,
+        jobs,
+        authError: null,
+      };
+    } catch (error) {
+      return {
+        applications: [],
+        jobs: [],
+        authError: error instanceof Error ? error.message : "Daten konnten nicht geladen werden.",
+      };
+    }
+  },
   head: () => ({
     meta: [
-      { title: "Interview Workspace – TalentFlow" },
-      { name: "description", content: "Vier Kontextquellen zu einem AGG-konformen Interviewleitfaden zusammenführen." },
+      { title: "Interview Workspace - TalentFlow" },
+      { name: "description", content: "CV und Jobbeschreibung zu einem AGG-konformen Interviewkontext zusammenfuhren." },
     ],
   }),
   component: WorkspacePage,
 });
 
 function WorkspacePage() {
-  const [appId, setAppId] = useState<string>("a1");
-  const [jobId, setJobId] = useState<string>("j1");
-  const [teamId, setTeamId] = useState<string>("t1");
-  const [teamContext, setTeamContext] = useState(
-    "Team wächst aktuell um zwei Senior-Rollen. Spannung zwischen Plattform-Roadmap und kurzfristigen Fachbereichs-Anforderungen.",
-  );
-  const [stage1, setStage1] = useState(
-    "Erster Eindruck sehr ruhig, klar strukturiert. Kommunikativ, gute Beispiele zur Stakeholder-Arbeit. Hypothese: hohe Reflexionsfähigkeit, Ambiguitätstoleranz noch zu prüfen. Keine Red Flags.",
-  );
-  const [generated, setGenerated] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const { applications, jobs, authError } = Route.useLoaderData();
+  const extractedApplications = applications.filter((document) => document.status === "extracted" && document.extraction);
+  const extractedJobs = jobs.filter((document) => document.status === "extracted" && document.extraction);
 
-  const application = applications.find((a) => a.id === appId);
-  const job = jobs.find((j) => j.id === jobId);
-  const team = teams.find((t) => t.id === teamId);
+  const [applicationId, setApplicationId] = useState<string>(extractedApplications[0]?.id ?? "");
+  const [jobId, setJobId] = useState<string>(extractedJobs[0]?.id ?? "");
+  const [stage1, setStage1] = useState("");
+  const [teamContext, setTeamContext] = useState("");
+  const [guide, setGuide] = useState<GuideData | null>(null);
 
-  const handleGenerate = () => {
-    setLoading(true);
-    setGenerated(false);
-    setTimeout(() => {
-      setLoading(false);
-      setGenerated(true);
-    }, 900);
+  const application = useMemo(
+    () => extractedApplications.find((document) => document.id === applicationId) ?? null,
+    [applicationId, extractedApplications],
+  );
+  const job = useMemo(
+    () => extractedJobs.find((document) => document.id === jobId) ?? null,
+    [extractedJobs, jobId],
+  );
+
+  const applicationExtraction = application?.kind === "cv" ? application.extraction : null;
+  const jobExtraction = job?.kind === "job_description" ? job.extraction : null;
+  const canGenerateGuide = Boolean(applicationExtraction && jobExtraction);
+
+  useEffect(() => {
+    setGuide(null);
+  }, [applicationId, jobId, stage1, teamContext]);
+
+  const buildGuide = () => {
+    if (!applicationExtraction || !jobExtraction) {
+      return;
+    }
+
+    const applicantName =
+      ("full_name" in applicationExtraction && applicationExtraction.full_name) || application?.filename || "Kandidat:in";
+    const jobTitle =
+      ("title" in jobExtraction && jobExtraction.title) || job?.filename || "Rolle";
+    const candidateSkills =
+      "skills" in applicationExtraction
+        ? applicationExtraction.skills.map((skill) => skill.trim()).filter(Boolean)
+        : [];
+    const requiredSkills =
+      "required_skills" in jobExtraction
+        ? jobExtraction.required_skills.map((skill) => skill.trim()).filter(Boolean)
+        : [];
+    const normalizedCandidateSkills = new Set(candidateSkills.map((skill) => skill.toLowerCase()));
+    const matchingSkills = requiredSkills.filter((skill) => normalizedCandidateSkills.has(skill.toLowerCase()));
+    const missingSkills = requiredSkills.filter((skill) => !normalizedCandidateSkills.has(skill.toLowerCase()));
+    const experienceHighlights =
+      "experience" in applicationExtraction
+        ? applicationExtraction.experience
+            .slice(0, 3)
+            .map((entry) => [entry.role, entry.company, entry.achievements].filter(Boolean).join(" bei "))
+            .filter(Boolean)
+        : [];
+    const recruiterSignals = stage1
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    const teamSignals = teamContext
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+
+    setGuide({
+      applicantName,
+      jobTitle,
+      candidateSummary:
+        ("summary" in applicationExtraction && applicationExtraction.summary) || "Keine Zusammenfassung im CV erkannt.",
+      roleSummary:
+        ("summary" in jobExtraction && jobExtraction.summary) || "Keine Zusammenfassung in der Jobbeschreibung erkannt.",
+      matchingSkills,
+      missingSkills,
+      focusQuestions: [
+        `Welche konkreten Beispiele kann ${applicantName} fur ${matchingSkills[0] || requiredSkills[0] || "die Kernanforderungen"} nennen?`,
+        missingSkills[0]
+          ? `Wie schnell kann sich ${applicantName} in ${missingSkills[0]} einarbeiten und welche ahnlichen Erfahrungen gibt es bereits?`
+          : `Wo liegt fur ${applicantName} der grosste Hebel, um in ${jobTitle} schnell Wirkung zu entfalten?`,
+        recruiterSignals[0]
+          ? `Wie lasst sich die Beobachtung aus Stage 1 "${recruiterSignals[0]}" im Fachinterview validieren?`
+          : "Welche Verhaltensbeispiele zeigen Zusammenarbeit, Ownership und Kommunikationsstarke?",
+        teamSignals[0]
+          ? `Wie passt ${applicantName} zur aktuellen Teamsituation: "${teamSignals[0]}"?`
+          : "Welche Erwartungen hat die Person an Teamdynamik und Stakeholder-Arbeit?",
+      ],
+      experienceHighlights,
+      recruiterSignals,
+      teamSignals,
+    });
   };
 
   return (
     <AppShell>
       <PageHeader
         title="Interview Workspace"
-        description="Vier Kontextquellen zu einem strukturierten, AGG-konformen Interviewleitfaden zusammenführen."
+        description="Nutze echte CV- und Job-Extraktionen als Grundlage fur die Vorbereitung."
         actions={
           <StatusPill tone="success">
-            <ShieldCheck className="h-3 w-3" /> AGG-geprüft
+            <ShieldCheck className="h-3 w-3" /> AGG-gepruft
           </StatusPill>
         }
       />
 
-      <div className="px-6 md:px-10 py-8 space-y-8 max-w-[1400px]">
-        {/* Context sources */}
-        <section className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] overflow-hidden">
-          <header className="px-6 py-4 border-b border-border flex items-center justify-between">
+      <div className="max-w-[1200px] space-y-8 px-6 py-8 md:px-10">
+        {authError && (
+          <AuthRequiredCard message={authError} />
+        )}
+
+        <section className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
+          <header className="flex items-center justify-between border-b border-border px-6 py-4">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Vier Kontextquellen</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Application · Team · Job · Stage-1-Kommentare
-              </p>
+              <h2 className="text-sm font-semibold text-foreground">Kontextquellen</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Live-Daten statt Demo-Daten</p>
             </div>
             <div className="flex items-center gap-2">
-              <StatusPill tone={application ? "success" : "neutral"}>1 Application</StatusPill>
-              <StatusPill tone={team ? "success" : "neutral"}>2 Team</StatusPill>
-              <StatusPill tone={job ? "success" : "neutral"}>3 Job</StatusPill>
-              <StatusPill tone={stage1.length > 20 ? "success" : "warning"}>4 Stage 1</StatusPill>
+              <StatusPill tone={application ? "success" : "neutral"}>CV</StatusPill>
+              <StatusPill tone={job ? "success" : "neutral"}>Job</StatusPill>
+              <StatusPill tone={stage1.length > 20 ? "success" : "warning"}>Stage 1</StatusPill>
             </div>
           </header>
 
-          <div className="grid lg:grid-cols-2 gap-6 p-6">
+          <div className="grid gap-6 p-6 lg:grid-cols-2">
             <div className="space-y-2">
               <Label>Application / CV</Label>
-              <Select value={appId} onValueChange={setAppId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={applicationId} onValueChange={setApplicationId}>
+                <SelectTrigger><SelectValue placeholder="CV auswahlen" /></SelectTrigger>
                 <SelectContent>
-                  {applications.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name} – {a.location}</SelectItem>
-                  ))}
+                  {extractedApplications.map((document) => {
+                    const extraction = document.kind === "cv" ? document.extraction : null;
+                    return (
+                      <SelectItem key={document.id} value={document.id}>
+                        {(extraction && "full_name" in extraction && extraction.full_name) || document.filename}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
-              {application && (
-                <p className="text-xs text-muted-foreground line-clamp-2">{application.shortProfile}</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {(applicationExtraction && "summary" in applicationExtraction && applicationExtraction.summary) || "Noch kein CV ausgewahlt."}
+              </p>
             </div>
 
             <div className="space-y-2">
               <Label>Job</Label>
               <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Job auswahlen" /></SelectTrigger>
                 <SelectContent>
-                  {jobs.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>
-                  ))}
+                  {extractedJobs.map((document) => {
+                    const extraction = document.kind === "job_description" ? document.extraction : null;
+                    return (
+                      <SelectItem key={document.id} value={document.id}>
+                        {(extraction && "title" in extraction && extraction.title) || document.filename}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
-              {job && <p className="text-xs text-muted-foreground line-clamp-2">{job.shortDescription}</p>}
+              <p className="text-xs text-muted-foreground">
+                {(jobExtraction && "summary" in jobExtraction && jobExtraction.summary) || "Noch kein Job ausgewahlt."}
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Team</Label>
-              <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {team && <p className="text-xs text-muted-foreground line-clamp-2">{team.description}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Teamstruktur / -kontext (frei)</Label>
+              <Label>Teamkontext</Label>
               <Textarea
+                rows={4}
                 value={teamContext}
-                onChange={(e) => setTeamContext(e.target.value)}
-                rows={3}
-                placeholder="Aktuelle Situation, Spannungen, Roadmap-Schwerpunkte…"
+                onChange={(event) => setTeamContext(event.target.value)}
+                placeholder="Aktuelle Team-Situation, Spannungen, Roadmap-Schwerpunkte..."
               />
             </div>
 
-            <div className="space-y-2 lg:col-span-2">
+            <div className="space-y-2">
               <Label>Recruiter-Kommentare aus Stage 1</Label>
               <Textarea
+                rows={4}
                 value={stage1}
-                onChange={(e) => setStage1(e.target.value)}
-                rows={5}
-                placeholder="Beobachtungen aus dem ersten Gespräch – Stärken, offene Punkte, Hypothesen…"
+                onChange={(event) => setStage1(event.target.value)}
+                placeholder="Beobachtungen aus dem ersten Gesprach..."
               />
             </div>
           </div>
 
-          <footer className="px-6 py-4 border-t border-border bg-muted/30 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <p className="text-xs text-muted-foreground max-w-2xl">
-              Die KI liefert Vorbereitung und Hypothesen – keine Entscheidung. Finale Bewertung
-              erfolgt durch das Interview-Panel.
+          <footer className="flex flex-col gap-3 border-t border-border bg-muted/30 px-6 py-4 md:flex-row md:items-center md:justify-between">
+            <p className="max-w-2xl text-xs text-muted-foreground">
+              Dieser Workspace kombiniert CV, Job und Recruiter-Notizen jetzt direkt zu einem interviewtauglichen Leitfaden.
             </p>
             <Button
               size="lg"
-              onClick={handleGenerate}
-              disabled={loading}
-              className="relative overflow-hidden bg-[#1f004c] hover:bg-[#2a0a66] text-[#fffcd9] shadow-[var(--shadow-glow)] before:absolute before:inset-x-0 before:bottom-0 before:h-[2px] before:bg-spectral"
+              disabled={!canGenerateGuide}
+              onClick={buildGuide}
+              className="bg-[#1f004c] text-[#fffcd9] hover:bg-[#2a0a66] disabled:bg-[#1f004c]/40 disabled:text-[#fffcd9]"
             >
-              {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generiere…</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Interviewleitfaden erzeugen</>
-              )}
+              <Sparkles className="mr-2 h-4 w-4" /> Interviewleitfaden erzeugen
             </Button>
           </footer>
         </section>
 
-        {!generated && !loading && (
-          <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              Wähle Kontextquellen und erzeuge einen Interviewleitfaden.
-            </p>
+        <section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Interviewleitfaden</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                AGG-konforme Fokusfragen auf Basis echter Extraktionsdaten.
+              </p>
+            </div>
+            <StatusPill tone={guide ? "success" : "neutral"}>
+              {guide ? "Bereit" : "Noch nicht erzeugt"}
+            </StatusPill>
           </div>
-        )}
 
-        {generated && (
-          <>
-            {/* B Preparation Summary */}
-            <SectionCard
-              icon={ScrollText}
-              title="Preparation Summary"
-              subtitle="Management-Zusammenfassung des Interviews"
-            >
-              <div className="grid md:grid-cols-3 gap-4 text-sm">
-                <SummaryBlock label="Rolle">{job?.title}</SummaryBlock>
-                <SummaryBlock label="Kandidat:in">
-                  {application?.name} · {application?.yearsExperience} J. Erfahrung
-                </SummaryBlock>
-                <SummaryBlock label="Team">{team?.name}</SummaryBlock>
-              </div>
-              <div className="mt-4 grid md:grid-cols-2 gap-4">
+          {guide ? (
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
+              <div className="space-y-6">
+                <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {guide.applicantName} fur {guide.jobTitle}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{guide.candidateSummary}</p>
+                  <p className="mt-3 text-sm text-muted-foreground">{guide.roleSummary}</p>
+                </div>
+
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Wichtigste Hypothesen</div>
-                  <ul className="text-sm space-y-1.5 text-foreground">
-                    <li>• Hohe Reflexionsfähigkeit, ruhiger Auftritt – verifizieren</li>
-                    <li>• Ambiguitätstoleranz im Plattform-Kontext zu prüfen</li>
-                    <li>• Mentoring-Erfahrung passt zum Teamwert „Wissensaustausch“</li>
+                  <h3 className="text-sm font-semibold text-foreground">Fokusfragen</h3>
+                  <ul className="mt-3 space-y-2 text-sm text-foreground">
+                    {guide.focusQuestions.map((question) => (
+                      <li key={question} className="rounded-lg border border-border bg-background px-4 py-3">
+                        {question}
+                      </li>
+                    ))}
                   </ul>
                 </div>
+
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Interviewfoki</div>
-                  <ul className="text-sm space-y-1.5 text-foreground">
-                    <li>• Architektur-Trade-offs und Entscheidungsstil</li>
-                    <li>• Stakeholder-Arbeit mit Fachbereich</li>
-                    <li>• Umgang mit unklaren Anforderungen</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="mt-5 rounded-lg bg-info/10 border border-info/20 p-4">
-                <div className="text-xs font-semibold text-info uppercase tracking-wide mb-1">Support Recommendation</div>
-                <p className="text-sm text-foreground">
-                  Empfehlung: zweistündiges Panel-Interview mit Hiring Manager, Team Lead und Peer.
-                  Fokus auf Deep Dive und Ambiguitäts-Szenario. Entscheidung im Anschluss gemeinsam dokumentieren.
-                </p>
-              </div>
-            </SectionCard>
-
-            {/* C Signals / Risks */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              <SectionCard icon={CheckCircle2} title="Positive Signale" tone="success">
-                <ul className="space-y-2.5">
-                  {positiveSignals.map((s) => (
-                    <li key={s} className="flex gap-2 text-sm text-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </SectionCard>
-              <SectionCard icon={AlertTriangle} title="Zu verifizieren" tone="warning">
-                <ul className="space-y-2.5">
-                  {openRisks.map((s) => (
-                    <li key={s} className="flex gap-2 text-sm text-foreground">
-                      <AlertTriangle className="h-4 w-4 text-warning-foreground shrink-0 mt-0.5" />
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </SectionCard>
-            </div>
-
-            {/* A Interviewleitfaden */}
-            <SectionCard icon={Clock} title="Interviewleitfaden" subtitle="Strukturierter Gesprächsablauf · ca. 60 Min">
-              <ol className="relative border-l border-border ml-2 space-y-5">
-                {interviewGuide.map((p, i) => (
-                  <li key={p.phase} className="pl-5 relative">
-                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center">
-                      {i + 1}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-medium text-sm text-foreground">{p.phase}</h4>
-                      <StatusPill>{p.duration}</StatusPill>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{p.goal}</p>
-                    <ul className="mt-2 text-sm text-foreground space-y-1">
-                      {p.notes.map((n) => <li key={n}>– {n}</li>)}
-                    </ul>
-                  </li>
-                ))}
-              </ol>
-            </SectionCard>
-
-            {/* D Top 10 questions */}
-            <SectionCard icon={MessageSquare} title="Top 10 personalisierte Fragen" subtitle="Mit Begründung und Quelle">
-              <div className="grid md:grid-cols-2 gap-3">
-                {top10Questions.map((q, i) => (
-                  <div key={q.id} className="rounded-lg border border-border p-4 bg-background/40">
-                    <div className="flex items-start gap-3">
-                      <div className="h-6 w-6 shrink-0 rounded-md bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
-                        {i + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground leading-snug">{q.question}</p>
-                        <p className="text-xs text-muted-foreground mt-2">{q.why}</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                          <StatusPill tone="info">{q.reference}</StatusPill>
-                          {q.scenarioTag && <StatusPill tone="primary">{q.scenarioTag}</StatusPill>}
+                  <h3 className="text-sm font-semibold text-foreground">Relevante Erfahrungsanker</h3>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {guide.experienceHighlights.length > 0 ? (
+                      guide.experienceHighlights.map((highlight) => (
+                        <div key={highlight} className="rounded-lg border border-border bg-background px-4 py-3">
+                          {highlight}
                         </div>
+                      ))
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border px-4 py-3">
+                        Noch keine klaren Erfahrungsanker erkannt.
                       </div>
-                    </div>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
-            </SectionCard>
 
-            {/* E Further question blocks */}
-            <div className="grid lg:grid-cols-3 gap-6">
-              <QuestionList title="Soft Skills" items={softSkillQuestions} />
-              <QuestionList title="Behavioural" items={behaviouralQuestions} />
-              <QuestionList title="Culture Fit" items={cultureFitQuestions} />
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Skill-Fit</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {guide.matchingSkills.length > 0 ? (
+                      guide.matchingSkills.map((skill) => (
+                        <StatusPill key={skill} tone="success">
+                          {skill}
+                        </StatusPill>
+                      ))
+                    ) : (
+                      <StatusPill tone="neutral">Noch keine Ubereinstimmungen erkannt</StatusPill>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Vertiefen im Interview</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {guide.missingSkills.length > 0 ? (
+                      guide.missingSkills.map((skill) => (
+                        <StatusPill key={skill} tone="warning">
+                          {skill}
+                        </StatusPill>
+                      ))
+                    ) : (
+                      <StatusPill tone="success">Keine offensichtlichen Skill-Lucken</StatusPill>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Stage-1-Signale</h3>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {guide.recruiterSignals.length > 0 ? (
+                      guide.recruiterSignals.map((signal) => <p key={signal}>{signal}</p>)
+                    ) : (
+                      <p>Noch keine Stage-1-Notizen hinterlegt.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Teamkontext</h3>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {guide.teamSignals.length > 0 ? (
+                      guide.teamSignals.map((signal) => <p key={signal}>{signal}</p>)
+                    ) : (
+                      <p>Noch kein Teamkontext hinterlegt.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
+          ) : (
+            <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+              Wahle einen extrahierten CV und eine Jobbeschreibung aus und erzeuge dann den Interviewleitfaden.
+            </div>
+          )}
+        </section>
 
-            {/* F Scenarios */}
-            <SectionCard icon={Lightbulb} title="Gesprächsszenarien" subtitle="Verschiedene Modi für unterschiedliche Signale">
-              <div className="grid md:grid-cols-2 gap-4">
-                {scenarios.map((s) => (
-                  <div key={s.title} className="rounded-lg border border-border p-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-foreground">{s.title}</h4>
-                      <StatusPill tone="primary">Szenario</StatusPill>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{s.goal}</p>
-                    <p className="text-sm text-foreground mt-3 leading-relaxed">{s.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {s.signals.map((sig) => <StatusPill key={sig} tone="info">{sig}</StatusPill>)}
-                    </div>
-                  </div>
-                ))}
+        <section className="grid gap-6 lg:grid-cols-2">
+          <article className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+            <h2 className="text-sm font-semibold text-foreground">CV-Extraktion</h2>
+            {applicationExtraction ? (
+              <div className="mt-4 space-y-3 text-sm text-foreground">
+                <p><span className="font-medium">Name:</span> {"full_name" in applicationExtraction ? applicationExtraction.full_name || "-" : "-"}</p>
+                <p><span className="font-medium">Standort:</span> {"location" in applicationExtraction ? applicationExtraction.location || "-" : "-"}</p>
+                <p><span className="font-medium">Skills:</span> {"skills" in applicationExtraction ? applicationExtraction.skills.join(", ") || "-" : "-"}</p>
               </div>
-            </SectionCard>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten CV auswahlen.</p>
+            )}
+          </article>
 
-            {/* G Compliance */}
-            <SectionCard icon={ShieldCheck} title="Company Fit & Compliance" tone="success" subtitle="AGG-konforme Dokumentationshilfe">
-              <div className="grid md:grid-cols-3 gap-4 text-sm">
-                <div className="rounded-lg border border-success/30 bg-success/5 p-4">
-                  <div className="text-xs font-semibold text-success uppercase tracking-wide">Status</div>
-                  <p className="mt-1 font-medium text-foreground">AGG-konform</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Keine Fragen zu Alter, Herkunft, Religion, Familienstand, Gesundheit oder politischer Einstellung.
-                  </p>
-                </div>
-                <div className="rounded-lg border border-border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Erlaubte Evidenz</div>
-                  <ul className="mt-2 space-y-1 text-sm text-foreground">
-                    <li>– Beobachtbares Verhalten im Gespräch</li>
-                    <li>– Konkrete Projektreferenzen</li>
-                    <li>– Reflexion über eigene Entscheidungen</li>
-                  </ul>
-                </div>
-                <div className="rounded-lg border border-border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Offene Risiken</div>
-                  <ul className="mt-2 space-y-1 text-sm text-foreground">
-                    <li>– Subjektive „Bauchgefühl“-Notizen vermeiden</li>
-                    <li>– Eindrücke immer mit Beispiel belegen</li>
-                  </ul>
-                </div>
+          <article className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+            <h2 className="text-sm font-semibold text-foreground">Job-Extraktion</h2>
+            {jobExtraction ? (
+              <div className="mt-4 space-y-3 text-sm text-foreground">
+                <p><span className="font-medium">Titel:</span> {"title" in jobExtraction ? jobExtraction.title || "-" : "-"}</p>
+                <p><span className="font-medium">Standort:</span> {"location" in jobExtraction ? jobExtraction.location || "-" : "-"}</p>
+                <p><span className="font-medium">Required Skills:</span> {"required_skills" in jobExtraction ? jobExtraction.required_skills.join(", ") || "-" : "-"}</p>
               </div>
-              <Textarea className="mt-5" rows={3} placeholder="Dokumentationsfähige Notizen für die Akte…" />
-            </SectionCard>
-
-            {/* H Panel */}
-            <SectionCard icon={Users} title="Empfohlenes Interviewpanel">
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {interviewPanel.map((p) => (
-                  <div key={p.role} className="rounded-lg border border-border p-4">
-                    <StatusPill tone="primary">{p.role}</StatusPill>
-                    <div className="mt-3 font-medium text-sm text-foreground">{p.name}</div>
-                    <p className="text-xs text-muted-foreground mt-1">{p.focus}</p>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            {/* I Feedback */}
-            <SectionCard icon={MessageSquare} title="Feedback nach dem Interview">
-              <div className="grid md:grid-cols-2 gap-4">
-                <FieldRow label="Interviewer Name"><Input placeholder="z. B. Markus Hentschel" /></FieldRow>
-                <FieldRow label="Interviewer Rolle"><Input placeholder="z. B. Team Lead" /></FieldRow>
-                <FieldRow label="Beobachtete Stärken"><Textarea rows={3} placeholder="Konkrete Beobachtungen, mit Beispiel…" /></FieldRow>
-                <FieldRow label="Beobachtete Risiken"><Textarea rows={3} placeholder="Was bleibt offen oder unklar?" /></FieldRow>
-                <FieldRow label="Culture-Fit-Notizen" full><Textarea rows={3} placeholder="Passung zu Werten und Arbeitsweise des Teams…" /></FieldRow>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <Button variant="outline">Entwurf speichern</Button>
-                <Button>Feedback abschließen</Button>
-              </div>
-            </SectionCard>
-          </>
-        )}
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten Job auswahlen.</p>
+            )}
+          </article>
+        </section>
       </div>
     </AppShell>
-  );
-}
-
-function SectionCard({
-  icon: Icon,
-  title,
-  subtitle,
-  children,
-  tone = "neutral",
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  tone?: "neutral" | "success" | "warning";
-}) {
-  const accent =
-    tone === "success" ? "text-success" : tone === "warning" ? "text-warning-foreground" : "text-primary";
-  return (
-    <section className="rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]">
-      <header className="px-6 py-4 border-b border-border flex items-start gap-3">
-        <div className={`h-9 w-9 shrink-0 rounded-lg bg-muted flex items-center justify-center ${accent}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-        </div>
-      </header>
-      <div className="p-6">{children}</div>
-    </section>
-  );
-}
-
-function SummaryBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium text-foreground">{children}</div>
-    </div>
-  );
-}
-
-function QuestionList({ title, items }: { title: string; items: string[] }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      <ul className="mt-3 space-y-2.5">
-        {items.map((q) => (
-          <li key={q} className="text-sm text-foreground flex gap-2">
-            <span className="text-muted-foreground">›</span>
-            <span>{q}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function FieldRow({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
-  return (
-    <div className={full ? "md:col-span-2" : ""}>
-      <Label className="mb-1.5 block">{label}</Label>
-      {children}
-    </div>
   );
 }

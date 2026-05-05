@@ -36,7 +36,7 @@ export const Route = createRootRoute({
       { property: "og:description", content: "Strukturierte Interviewvorbereitung mit klarer Compliance." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@TalentFlow" },
     ],
     links: [
       {
