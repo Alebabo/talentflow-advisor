@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as TeamsRouteImport } from './routes/teams'
+import { Route as LeitfadenRouteImport } from './routes/leitfaden'
 import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const WorkspaceRoute = WorkspaceRouteImport.update({
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeitfadenRoute = LeitfadenRouteImport.update({
+  id: '/leitfaden',
+  path: '/leitfaden',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JobsRoute = JobsRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
+  '/leitfaden': typeof LeitfadenRoute
   '/teams': typeof TeamsRoute
   '/workspace': typeof WorkspaceRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
+  '/leitfaden': typeof LeitfadenRoute
   '/teams': typeof TeamsRoute
   '/workspace': typeof WorkspaceRoute
 }
@@ -60,21 +68,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/jobs': typeof JobsRoute
+  '/leitfaden': typeof LeitfadenRoute
   '/teams': typeof TeamsRoute
   '/workspace': typeof WorkspaceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
+  fullPaths:
+    | '/'
+    | '/applications'
+    | '/jobs'
+    | '/leitfaden'
+    | '/teams'
+    | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
-  id: '__root__' | '/' | '/applications' | '/jobs' | '/teams' | '/workspace'
+  to: '/' | '/applications' | '/jobs' | '/leitfaden' | '/teams' | '/workspace'
+  id:
+    | '__root__'
+    | '/'
+    | '/applications'
+    | '/jobs'
+    | '/leitfaden'
+    | '/teams'
+    | '/workspace'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicationsRoute: typeof ApplicationsRoute
   JobsRoute: typeof JobsRoute
+  LeitfadenRoute: typeof LeitfadenRoute
   TeamsRoute: typeof TeamsRoute
   WorkspaceRoute: typeof WorkspaceRoute
 }
@@ -93,6 +116,13 @@ declare module '@tanstack/react-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof TeamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leitfaden': {
+      id: '/leitfaden'
+      path: '/leitfaden'
+      fullPath: '/leitfaden'
+      preLoaderRoute: typeof LeitfadenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jobs': {
@@ -123,6 +153,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicationsRoute: ApplicationsRoute,
   JobsRoute: JobsRoute,
+  LeitfadenRoute: LeitfadenRoute,
   TeamsRoute: TeamsRoute,
   WorkspaceRoute: WorkspaceRoute,
 }
