@@ -292,13 +292,15 @@ function LeitfadenPage() {
           })}
         </div>
 
+        {/* Skill upload for question generation */}
+        <SkillUpload />
+
         {/* Flow */}
-        <section className="rounded-xl border border-border bg-card p-6 md:p-8 shadow-[var(--shadow-soft)]">
-          <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h3 className="text-base font-semibold text-foreground">Empfohlener Ablauf</h3>
-            <StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>
-          </div>
-          <ol className="mt-5 grid gap-3 md:grid-cols-5">
+        <Section
+          title="Empfohlener Ablauf"
+          meta={<StatusPill tone="primary">ca. 50 Min gesamt</StatusPill>}
+        >
+          <ol className="grid gap-3 md:grid-cols-5">
             {flow.map((f) => (
               <li key={f.step} className="rounded-lg border border-border p-4 bg-background/40 relative">
                 <div className="text-[11px] font-semibold text-[#854bff]">{f.step}</div>
@@ -308,15 +310,18 @@ function LeitfadenPage() {
               </li>
             ))}
           </ol>
-        </section>
+        </Section>
 
         {/* Dos */}
-        <section className="rounded-xl border border-border bg-card p-6 md:p-8">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
-            <h3 className="text-base font-semibold text-foreground">Dos</h3>
-          </div>
-          <ul className="mt-4 grid md:grid-cols-2 gap-x-8 gap-y-2.5">
+        <Section
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[#1f7a1f]" />
+              Dos
+            </span>
+          }
+        >
+          <ul className="grid md:grid-cols-2 gap-x-8 gap-y-2.5">
             {dos.map((d) => (
               <li key={d} className="flex gap-2 text-sm text-foreground">
                 <span className="text-[#64e100] mt-0.5">›</span>
@@ -324,13 +329,12 @@ function LeitfadenPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
 
         {/* Question banks */}
         <div className="grid lg:grid-cols-2 gap-6">
-          <section className="rounded-xl border border-border bg-card p-6">
-            <h3 className="text-sm font-semibold text-foreground">Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz</h3>
-            <ul className="mt-4 space-y-2.5">
+          <Section title="Beispielfragen: Fachlichkeit, Haltung, Zukunftskompetenz" defaultOpen={false}>
+            <ul className="space-y-2.5">
               {factualQuestions.map((q) => (
                 <li key={q} className="text-sm text-foreground flex gap-2">
                   <span className="text-muted-foreground">·</span>
@@ -338,10 +342,9 @@ function LeitfadenPage() {
                 </li>
               ))}
             </ul>
-          </section>
-          <section className="rounded-xl border border-border bg-card p-6">
-            <h3 className="text-sm font-semibold text-foreground">Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit</h3>
-            <ul className="mt-4 space-y-2.5">
+          </Section>
+          <Section title="Beispielfragen: Zusammenarbeit, Werte & Persönlichkeit" defaultOpen={false}>
+            <ul className="space-y-2.5">
               {cultureQuestions.map((q) => (
                 <li key={q} className="text-sm text-foreground flex gap-2">
                   <span className="text-muted-foreground">·</span>
@@ -349,54 +352,63 @@ function LeitfadenPage() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
         </div>
 
         {/* Don'ts */}
         <div className="grid lg:grid-cols-2 gap-6">
-          <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-            <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-destructive" />
-              <h3 className="text-sm font-semibold text-foreground">Rechtlich nicht zulässig – verboten</h3>
-            </div>
-            <ul className="mt-3 space-y-2.5 text-sm text-foreground">
+          <Section
+            className="border-destructive/30 bg-destructive/5"
+            defaultOpen={false}
+            title={
+              <span className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-destructive" />
+                Rechtlich nicht zulässig – verboten
+              </span>
+            }
+          >
+            <ul className="space-y-2.5 text-sm text-foreground">
               {forbidden.map((d) => (
                 <li key={d} className="flex gap-2"><span className="text-destructive mt-0.5">×</span><span>{d}</span></li>
               ))}
             </ul>
-          </section>
-          <section className="rounded-xl border border-warning/40 bg-warning/5 p-6">
-            <div className="flex items-center gap-2">
-              <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
-              <h3 className="text-sm font-semibold text-foreground">Schlechter Stil – unangebracht</h3>
-            </div>
-            <ul className="mt-3 space-y-2.5 text-sm text-foreground">
+          </Section>
+          <Section
+            className="border-warning/40 bg-warning/5"
+            defaultOpen={false}
+            title={
+              <span className="flex items-center gap-2">
+                <AlertOctagon className="h-4 w-4 text-[#8a6a00]" />
+                Schlechter Stil – unangebracht
+              </span>
+            }
+          >
+            <ul className="space-y-2.5 text-sm text-foreground">
               {badStyle.map((d) => (
                 <li key={d} className="flex gap-2"><span className="text-[#8a6a00] mt-0.5">!</span><span>{d}</span></li>
               ))}
             </ul>
-          </section>
+          </Section>
         </div>
 
         {/* PDF embed */}
-        <section className="rounded-xl border border-border bg-card overflow-hidden">
-          <header className="px-6 py-4 border-b border-border flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Original-PDF</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Vollständiger Leitfaden zum Lesen oder Download</p>
-            </div>
-            <Button variant="outline" size="sm" asChild>
+        <Section
+          defaultOpen={false}
+          title="Original-PDF"
+          meta={
+            <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
               <a href="/interview-leitfaden.pdf" download>
                 <Download className="h-4 w-4 mr-2" /> Download
               </a>
             </Button>
-          </header>
+          }
+        >
           <iframe
             src="/interview-leitfaden.pdf"
             title="Interview-Leitfaden PDF"
-            className="w-full h-[720px] bg-muted"
+            className="w-full h-[720px] bg-muted rounded-lg border border-border"
           />
-        </section>
+        </Section>
       </div>
     </AppShell>
   );
