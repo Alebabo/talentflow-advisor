@@ -4,55 +4,44 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { AuthRequiredCard } from "@/components/auth-required-card";
 import { StatusPill } from "@/components/status-pill";
 import { listDocuments } from "@/extraction.functions";
+import type { InterviewGuideData } from "@/lib/recruiting";
+import { generateInterviewGuide, listQuestionPrompts, listTeams } from "@/recruiting.functions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ShieldCheck, Sparkles } from "lucide-react";
-
-type GuideData = {
-  applicantName: string;
-  jobTitle: string;
-  candidateSummary: string;
-  roleSummary: string;
-  matchingSkills: string[];
-  missingSkills: string[];
-  focusQuestions: string[];
-  experienceHighlights: string[];
-  recruiterSignals: string[];
-  teamSignals: string[];
-};
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, ShieldCheck, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/workspace")({
   loader: async () => {
     try {
-      const [applications, jobs] = await Promise.all([
+      const [applications, jobs, teams, prompts] = await Promise.all([
         listDocuments({ data: { kind: "cv" } }),
         listDocuments({ data: { kind: "job_description" } }),
+        listTeams(),
+        listQuestionPrompts(),
       ]);
 
       return {
         applications,
         jobs,
+        teams,
+        prompts,
         authError: null,
       };
     } catch (error) {
       return {
         applications: [],
         jobs: [],
+        teams: [],
+        prompts: [],
         authError: error instanceof Error ? error.message : "Daten konnten nicht geladen werden.",
       };
     }
   },
   head: () => ({
     meta: [
-      { title: "Interview Workspace - TalentFlow" },
+      { title: "Interview-Arbeitsbereich - TalentFlow" },
       { name: "description", content: "CV und Jobbeschreibung zu einem AGG-konformen Interviewkontext zusammenfuhren." },
     ],
   }),
@@ -60,15 +49,17 @@ export const Route = createFileRoute("/workspace")({
 });
 
 function WorkspacePage() {
-  const { applications, jobs, authError } = Route.useLoaderData();
+  const { applications, jobs, teams, prompts, authError } = Route.useLoaderData();
   const extractedApplications = applications.filter((document) => document.status === "extracted" && document.extraction);
   const extractedJobs = jobs.filter((document) => document.status === "extracted" && document.extraction);
 
   const [applicationId, setApplicationId] = useState<string>(extractedApplications[0]?.id ?? "");
   const [jobId, setJobId] = useState<string>(extractedJobs[0]?.id ?? "");
+  const [teamId, setTeamId] = useState<string>(teams[0]?.id ?? "");
   const [stage1, setStage1] = useState("");
-  const [teamContext, setTeamContext] = useState("");
-  const [guide, setGuide] = useState<GuideData | null>(null);
+  const [guide, setGuide] = useState<InterviewGuideData | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const application = useMemo(
     () => extractedApplications.find((document) => document.id === applicationId) ?? null,
@@ -78,6 +69,7 @@ function WorkspacePage() {
     () => extractedJobs.find((document) => document.id === jobId) ?? null,
     [extractedJobs, jobId],
   );
+  const selectedTeam = teams.find((team) => team.id === teamId) ?? null;
 
   const applicationExtraction = application?.kind === "cv" ? application.extraction : null;
   const jobExtraction = job?.kind === "job_description" ? job.extraction : null;
@@ -85,89 +77,46 @@ function WorkspacePage() {
 
   useEffect(() => {
     setGuide(null);
-  }, [applicationId, jobId, stage1, teamContext]);
+  }, [applicationId, jobId, stage1, teamId]);
 
-  const buildGuide = () => {
+  const buildGuide = async () => {
     if (!applicationExtraction || !jobExtraction) {
       return;
     }
 
-    const applicantName =
-      ("full_name" in applicationExtraction && applicationExtraction.full_name) || application?.filename || "Kandidat:in";
-    const jobTitle =
-      ("title" in jobExtraction && jobExtraction.title) || job?.filename || "Rolle";
-    const candidateSkills =
-      "skills" in applicationExtraction
-        ? applicationExtraction.skills.map((skill) => skill.trim()).filter(Boolean)
-        : [];
-    const requiredSkills =
-      "required_skills" in jobExtraction
-        ? jobExtraction.required_skills.map((skill) => skill.trim()).filter(Boolean)
-        : [];
-    const normalizedCandidateSkills = new Set(candidateSkills.map((skill) => skill.toLowerCase()));
-    const matchingSkills = requiredSkills.filter((skill) => normalizedCandidateSkills.has(skill.toLowerCase()));
-    const missingSkills = requiredSkills.filter((skill) => !normalizedCandidateSkills.has(skill.toLowerCase()));
-    const experienceHighlights =
-      "experience" in applicationExtraction
-        ? applicationExtraction.experience
-            .slice(0, 3)
-            .map((entry) => [entry.role, entry.company, entry.achievements].filter(Boolean).join(" bei "))
-            .filter(Boolean)
-        : [];
-    const recruiterSignals = stage1
-      .split(/\n+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 4);
-    const teamSignals = teamContext
-      .split(/\n+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .slice(0, 4);
-
-    setGuide({
-      applicantName,
-      jobTitle,
-      candidateSummary:
-        ("summary" in applicationExtraction && applicationExtraction.summary) || "Keine Zusammenfassung im CV erkannt.",
-      roleSummary:
-        ("summary" in jobExtraction && jobExtraction.summary) || "Keine Zusammenfassung in der Jobbeschreibung erkannt.",
-      matchingSkills,
-      missingSkills,
-      focusQuestions: [
-        `Welche konkreten Beispiele kann ${applicantName} fur ${matchingSkills[0] || requiredSkills[0] || "die Kernanforderungen"} nennen?`,
-        missingSkills[0]
-          ? `Wie schnell kann sich ${applicantName} in ${missingSkills[0]} einarbeiten und welche ahnlichen Erfahrungen gibt es bereits?`
-          : `Wo liegt fur ${applicantName} der grosste Hebel, um in ${jobTitle} schnell Wirkung zu entfalten?`,
-        recruiterSignals[0]
-          ? `Wie lasst sich die Beobachtung aus Stage 1 "${recruiterSignals[0]}" im Fachinterview validieren?`
-          : "Welche Verhaltensbeispiele zeigen Zusammenarbeit, Ownership und Kommunikationsstarke?",
-        teamSignals[0]
-          ? `Wie passt ${applicantName} zur aktuellen Teamsituation: "${teamSignals[0]}"?`
-          : "Welche Erwartungen hat die Person an Teamdynamik und Stakeholder-Arbeit?",
-      ],
-      experienceHighlights,
-      recruiterSignals,
-      teamSignals,
-    });
+    try {
+      setGenerationError(null);
+      setIsGenerating(true);
+      const result = await generateInterviewGuide({
+        data: {
+          applicationId,
+          jobId,
+          recruiterNotes: stage1,
+          teamId: teamId || null,
+        },
+      });
+      setGuide(result);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : "Interviewleitfaden konnte nicht erzeugt werden.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
     <AppShell>
       <PageHeader
-        title="Interview Workspace"
-        description="Nutze echte CV- und Job-Extraktionen als Grundlage fur die Vorbereitung."
+        title="Interview-Arbeitsbereich"
+        description="Nutze echte CV-, Job- und Team-Extraktionen als Grundlage fuer die Vorbereitung."
         actions={
           <StatusPill tone="success">
-            <ShieldCheck className="h-3 w-3" /> AGG-gepruft
+            <ShieldCheck className="h-3 w-3" /> AGG-geprueft
           </StatusPill>
         }
       />
 
       <div className="max-w-[1200px] space-y-8 px-6 py-8 md:px-10">
-        {authError && (
-          <AuthRequiredCard message={authError} />
-        )}
+        {authError && <AuthRequiredCard message={authError} />}
 
         <section className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
           <header className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -178,15 +127,16 @@ function WorkspacePage() {
             <div className="flex items-center gap-2">
               <StatusPill tone={application ? "success" : "neutral"}>CV</StatusPill>
               <StatusPill tone={job ? "success" : "neutral"}>Job</StatusPill>
+              <StatusPill tone={selectedTeam ? "success" : "warning"}>Team</StatusPill>
               <StatusPill tone={stage1.length > 20 ? "success" : "warning"}>Stage 1</StatusPill>
             </div>
           </header>
 
           <div className="grid gap-6 p-6 lg:grid-cols-2">
             <div className="space-y-2">
-              <Label>Application / CV</Label>
+              <Label>Bewerbung / CV</Label>
               <Select value={applicationId} onValueChange={setApplicationId}>
-                <SelectTrigger><SelectValue placeholder="CV auswahlen" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="CV auswaehlen" /></SelectTrigger>
                 <SelectContent>
                   {extractedApplications.map((document) => {
                     const extraction = document.kind === "cv" ? document.extraction : null;
@@ -199,14 +149,15 @@ function WorkspacePage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {(applicationExtraction && "summary" in applicationExtraction && applicationExtraction.summary) || "Noch kein CV ausgewahlt."}
+                {(applicationExtraction && "summary" in applicationExtraction && applicationExtraction.summary) ||
+                  "Noch kein CV ausgewaehlt."}
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>Job</Label>
               <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger><SelectValue placeholder="Job auswahlen" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Job auswaehlen" /></SelectTrigger>
                 <SelectContent>
                   {extractedJobs.map((document) => {
                     const extraction = document.kind === "job_description" ? document.extraction : null;
@@ -219,18 +170,25 @@ function WorkspacePage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {(jobExtraction && "summary" in jobExtraction && jobExtraction.summary) || "Noch kein Job ausgewahlt."}
+                {(jobExtraction && "summary" in jobExtraction && jobExtraction.summary) || "Noch kein Job ausgewaehlt."}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Teamkontext</Label>
-              <Textarea
-                rows={4}
-                value={teamContext}
-                onChange={(event) => setTeamContext(event.target.value)}
-                placeholder="Aktuelle Team-Situation, Spannungen, Roadmap-Schwerpunkte..."
-              />
+              <Label>Team</Label>
+              <Select value={teamId} onValueChange={setTeamId}>
+                <SelectTrigger><SelectValue placeholder="Team auswaehlen" /></SelectTrigger>
+                <SelectContent>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedTeam?.description || "Optional: Erst unter Teams ein Profil hochladen, um mehr Kontext zu nutzen."}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -239,37 +197,42 @@ function WorkspacePage() {
                 rows={4}
                 value={stage1}
                 onChange={(event) => setStage1(event.target.value)}
-                placeholder="Beobachtungen aus dem ersten Gesprach..."
+                placeholder="Beobachtungen aus dem ersten Gespraech..."
               />
             </div>
           </div>
 
           <footer className="flex flex-col gap-3 border-t border-border bg-muted/30 px-6 py-4 md:flex-row md:items-center md:justify-between">
             <p className="max-w-2xl text-xs text-muted-foreground">
-              Dieser Workspace kombiniert CV, Job und Recruiter-Notizen jetzt direkt zu einem interviewtauglichen Leitfaden.
+              Dieser Workspace kombiniert CV, Job, Team und Recruiter-Notizen mit {prompts.length} aktiven Prompt-Regeln.
             </p>
             <Button
               size="lg"
-              disabled={!canGenerateGuide}
-              onClick={buildGuide}
+              disabled={!canGenerateGuide || isGenerating}
+              onClick={() => void buildGuide()}
               className="bg-[#1f004c] text-[#fffcd9] hover:bg-[#2a0a66] disabled:bg-[#1f004c]/40 disabled:text-[#fffcd9]"
             >
-              <Sparkles className="mr-2 h-4 w-4" /> Interviewleitfaden erzeugen
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Interviewleitfaden erzeugen
             </Button>
           </footer>
         </section>
+
+        {generationError && (
+          <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            {generationError}
+          </div>
+        )}
 
         <section className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Interviewleitfaden</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                AGG-konforme Fokusfragen auf Basis echter Extraktionsdaten.
+                AGG-konforme Fokusfragen auf Basis echter Extraktionsdaten und gespeicherter System-Prompts.
               </p>
             </div>
-            <StatusPill tone={guide ? "success" : "neutral"}>
-              {guide ? "Bereit" : "Noch nicht erzeugt"}
-            </StatusPill>
+            <StatusPill tone={guide ? "success" : "neutral"}>{guide ? "Bereit" : "Noch nicht erzeugt"}</StatusPill>
           </div>
 
           {guide ? (
@@ -277,7 +240,7 @@ function WorkspacePage() {
               <div className="space-y-6">
                 <div className="rounded-lg border border-border bg-muted/20 p-4">
                   <h3 className="text-sm font-semibold text-foreground">
-                    {guide.applicantName} fur {guide.jobTitle}
+                    {guide.applicantName} fuer {guide.jobTitle}
                   </h3>
                   <p className="mt-2 text-sm text-muted-foreground">{guide.candidateSummary}</p>
                   <p className="mt-3 text-sm text-muted-foreground">{guide.roleSummary}</p>
@@ -314,7 +277,7 @@ function WorkspacePage() {
 
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Skill-Fit</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Skill-Passung</h3>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {guide.matchingSkills.length > 0 ? (
                       guide.matchingSkills.map((skill) => (
@@ -323,7 +286,7 @@ function WorkspacePage() {
                         </StatusPill>
                       ))
                     ) : (
-                      <StatusPill tone="neutral">Noch keine Ubereinstimmungen erkannt</StatusPill>
+                      <StatusPill tone="neutral">Noch keine Passungen erkannt</StatusPill>
                     )}
                   </div>
                 </div>
@@ -338,8 +301,22 @@ function WorkspacePage() {
                         </StatusPill>
                       ))
                     ) : (
-                      <StatusPill tone="success">Keine offensichtlichen Skill-Lucken</StatusPill>
+                      <StatusPill tone="success">Keine offensichtlichen Skill-Luecken</StatusPill>
                     )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Staerken</h3>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {guide.strengths.map((item) => <p key={item}>{item}</p>)}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/20 p-4">
+                  <h3 className="text-sm font-semibold text-foreground">Schwaechen / Risiken</h3>
+                  <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                    {guide.weaknesses.map((item) => <p key={item}>{item}</p>)}
                   </div>
                 </div>
 
@@ -363,12 +340,13 @@ function WorkspacePage() {
                       <p>Noch kein Teamkontext hinterlegt.</p>
                     )}
                   </div>
+                  {guide.teamMatchSummary && <p className="mt-3 text-sm text-foreground">{guide.teamMatchSummary}</p>}
                 </div>
               </div>
             </div>
           ) : (
             <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-              Wahle einen extrahierten CV und eine Jobbeschreibung aus und erzeuge dann den Interviewleitfaden.
+              Waehle einen extrahierten CV und eine Jobbeschreibung aus und erzeuge dann den Interviewleitfaden.
             </div>
           )}
         </section>
@@ -383,7 +361,7 @@ function WorkspacePage() {
                 <p><span className="font-medium">Skills:</span> {"skills" in applicationExtraction ? applicationExtraction.skills.join(", ") || "-" : "-"}</p>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten CV auswahlen.</p>
+              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten CV auswaehlen.</p>
             )}
           </article>
 
@@ -396,7 +374,7 @@ function WorkspacePage() {
                 <p><span className="font-medium">Required Skills:</span> {"required_skills" in jobExtraction ? jobExtraction.required_skills.join(", ") || "-" : "-"}</p>
               </div>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten Job auswahlen.</p>
+              <p className="mt-4 text-sm text-muted-foreground">Bitte zuerst einen extrahierten Job auswaehlen.</p>
             )}
           </article>
         </section>

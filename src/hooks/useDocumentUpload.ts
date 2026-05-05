@@ -79,8 +79,10 @@ export function useDocumentUpload({
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isPopupVisible, setIsPopupVisible] = useState(false);
+  const [isIndeterminate, setIsIndeterminate] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusLabel, setStatusLabel] = useState("");
+  const activeEntityLabel = kind === "job_description" ? "Job" : "Bewerbung";
 
   useEffect(() => {
     return () => {
@@ -137,8 +139,9 @@ export function useDocumentUpload({
         if (document.status === "extracted" || document.status === "failed") {
           if (isMountedRef.current) {
             setActiveDocumentId(null);
+            setIsIndeterminate(false);
             setProgress(100);
-            setStatusLabel(document.status === "extracted" ? "Extraktion abgeschlossen" : "Extraktion fehlgeschlagen");
+            setStatusLabel(document.status === "extracted" ? `${activeEntityLabel} eingetragen` : "Upload fehlgeschlagen");
             if (document.status === "failed" && document.error) {
               setError(document.error);
             }
@@ -149,8 +152,8 @@ export function useDocumentUpload({
         }
 
         if (isMountedRef.current) {
-          setStatusLabel(document.status === "processing" ? "KI extrahiert Inhalte..." : "Warte auf Verarbeitung...");
-          setProgress((current) => Math.min(95, current + 3));
+          setIsIndeterminate(true);
+          setStatusLabel(document.status === "processing" ? `Trage ${activeEntityLabel} ein...` : "Warte auf Verarbeitung...");
         }
 
         await sleep(2000);
@@ -171,11 +174,14 @@ export function useDocumentUpload({
 
       showPopup();
       setError(null);
+      setIsIndeterminate(true);
       setProgress(0);
       setStatusLabel("Datei wird vorbereitet...");
       const resolvedMimeType = inferMimeType(file);
 
       if (!resolvedMimeType) {
+        setIsIndeterminate(false);
+        setProgress(100);
         setError("Bitte nur PDF-, DOCX- oder TXT-Dateien hochladen.");
         setStatusLabel("Upload fehlgeschlagen");
         hidePopupLater();
@@ -184,6 +190,8 @@ export function useDocumentUpload({
       }
 
       if (file.size > 10 * 1024 * 1024) {
+        setIsIndeterminate(false);
+        setProgress(100);
         setError("Dateien durfen maximal 10 MB gross sein.");
         setStatusLabel("Upload fehlgeschlagen");
         hidePopupLater();
@@ -194,7 +202,7 @@ export function useDocumentUpload({
       setIsUploading(true);
 
       try {
-        setProgress(15);
+        setProgress(20);
         setStatusLabel("Datei wird gelesen...");
         const fileBase64 = await toBase64(file);
         if (isMountedRef.current) {
@@ -216,8 +224,8 @@ export function useDocumentUpload({
         }
 
         setActiveDocumentId(result.documentId);
-        setProgress(70);
-        setStatusLabel("Upload abgeschlossen, Extraktion startet...");
+        setProgress(100);
+        setStatusLabel(`Trage ${activeEntityLabel} ein...`);
         onUploaded?.(result.documentId);
 
         void extractDocument({
@@ -231,6 +239,7 @@ export function useDocumentUpload({
         void pollDocument(result.documentId).catch((pollError: unknown) => {
           if (isMountedRef.current) {
             setActiveDocumentId(null);
+            setIsIndeterminate(false);
             setProgress(100);
             setError(pollError instanceof Error ? pollError.message : "Upload konnte nicht abgeschlossen werden.");
             setStatusLabel("Upload fehlgeschlagen");
@@ -239,6 +248,7 @@ export function useDocumentUpload({
         });
       } catch (uploadError) {
         if (isMountedRef.current) {
+          setIsIndeterminate(false);
           setProgress(100);
           setError(uploadError instanceof Error ? uploadError.message : "Upload fehlgeschlagen.");
           setStatusLabel("Upload fehlgeschlagen");
@@ -259,6 +269,7 @@ export function useDocumentUpload({
     error,
     handleFileChange,
     inputRef,
+    isIndeterminate,
     isPopupVisible,
     isUploading,
     openPicker,

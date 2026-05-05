@@ -86,12 +86,22 @@ export const uploadDocument = createServerFn({ method: "POST" })
       decodeBase64File,
       insertDocumentRow,
       runDocumentExtraction,
+      verifyUploadMatchesExpectedKind,
       uploadDocumentToStorage,
     } = await import("./server/extraction.server");
 
     const buffer = decodeBase64File(data.fileBase64);
     const documentId = crypto.randomUUID();
     const storagePath = buildStoragePath(context.user.id, documentId, data.filename);
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    await verifyUploadMatchesExpectedKind({
+      expectedKind: data.kind,
+      filename: data.filename,
+      mimeType: data.mimeType,
+      buffer,
+      apiKey: apiKey || undefined,
+    });
 
     await uploadDocumentToStorage({
       supabase: context.supabase,
@@ -115,7 +125,6 @@ export const uploadDocument = createServerFn({ method: "POST" })
       throw toSerializableError(error);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       void runDocumentExtraction({
         supabase: context.supabase,

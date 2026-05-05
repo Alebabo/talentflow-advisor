@@ -1,5 +1,6 @@
 type UploadProgressPopupProps = {
   error?: string | null;
+  isIndeterminate?: boolean;
   isVisible: boolean;
   progress: number;
   statusLabel: string;
@@ -8,6 +9,7 @@ type UploadProgressPopupProps = {
 
 export function UploadProgressPopup({
   error,
+  isIndeterminate = false,
   isVisible,
   progress,
   statusLabel,
@@ -16,6 +18,9 @@ export function UploadProgressPopup({
   if (!isVisible && !error) {
     return null;
   }
+
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+  const shouldAnimate = isIndeterminate && !error && clampedProgress < 100;
 
   return (
     <div className="pointer-events-none fixed bottom-5 right-5 z-50 w-[360px] max-w-[calc(100vw-2rem)]">
@@ -27,14 +32,19 @@ export function UploadProgressPopup({
               {error || statusLabel}
             </div>
           </div>
-          <div className="rounded-full bg-[#1f004c]/8 px-2 py-1 text-xs font-medium text-[#1f004c]">{Math.round(progress)}%</div>
         </div>
 
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-[#1f004c] transition-[width] duration-300 ease-out"
-            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-          />
+          {shouldAnimate ? (
+            <div className="relative h-full w-full overflow-hidden rounded-full">
+              <div className="absolute inset-y-0 left-[-35%] w-[35%] rounded-full bg-[#1f004c] animate-[upload-slide_1.15s_ease-in-out_infinite]" />
+            </div>
+          ) : (
+            <div
+              className="h-full rounded-full bg-[#1f004c] transition-[width] duration-300 ease-out"
+              style={{ width: `${clampedProgress}%` }}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -88,6 +88,8 @@ export type JobExtractionPayload = {
 };
 
 export type StoredDocument = {
+  application_status: "new" | "screening" | "interview" | "offer" | "hired" | "rejected" | "withdrawn";
+  application_status_updated_at: string;
   id: string;
   user_id: string;
   kind: DocumentKind;
@@ -231,6 +233,226 @@ async function extractDocxText(buffer: Buffer) {
 
 function extractTxtText(buffer: Buffer) {
   return new TextDecoder().decode(buffer).trim();
+}
+
+type UploadClassification = {
+  detectedKind: DocumentKind | "unknown";
+  confidence: "high" | "low";
+  reason: string;
+};
+
+const cvKeywords = [
+  "lebenslauf",
+  "curriculum vitae",
+  "cv ",
+  "berufserfahrung",
+  "ausbildung",
+  "kenntnisse",
+  "sprachkenntnisse",
+  "zertifikate",
+  "profil",
+  "kontakt",
+];
+
+const jobKeywords = [
+  "stellenbeschreibung",
+  "stellenanzeige",
+  "jobbeschreibung",
+  "deine aufgaben",
+  "ihre aufgaben",
+  "anforderungen",
+  "qualifikationen",
+  "wir bieten",
+  "benefits",
+  "bewerben",
+];
+
+function countKeywordHits(source: string, keywords: string[]) {
+  return keywords.reduce((total, keyword) => total + (source.includes(keyword) ? 1 : 0), 0);
+}
+
+function classifyByHeuristics({
+  filename,
+  text,
+}: {
+  filename: string;
+  text: string | null;
+}): UploadClassification {
+  const normalizedFilename = filename.toLowerCase();
+  const normalizedText = (text ?? "").toLowerCase();
+  const combined = `${normalizedFilename}\n${normalizedText}`;
+  const cvHits = countKeywordHits(combined, cvKeywords);
+  const jobHits = countKeywordHits(combined, jobKeywords);
+
+  if (cvHits === 0 && jobHits === 0) {
+    return {
+      detectedKind: "unknown",
+      confidence: "low",
+      reason: "Keine eindeutigen Schluesselbegriffe erkannt.",
+    };
+  }
+
+  if (cvHits >= jobHits + 2) {
+    return {
+      detectedKind: "cv",
+      confidence: cvHits >= 3 ? "high" : "low",
+      reason: "Mehrere typische CV-Merkmale wurden erkannt.",
+    };
+  }
+
+  if (jobHits >= cvHits + 2) {
+    return {
+      detectedKind: "job_description",
+      confidence: jobHits >= 3 ? "high" : "low",
+      reason: "Mehrere typische Merkmale einer Jobbeschreibung wurden erkannt.",
+    };
+  }
+
+  return {
+    detectedKind: "unknown",
+    confidence: "low",
+    reason: "Die Datei ist inhaltlich nicht eindeutig zuordenbar.",
+  };
+}
+
+async function classifyPdfWithGemini({
+  apiKey,
+  buffer,
+  filename,
+  mimeType,
+}: {
+  apiKey: string;
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}) {
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gemini-2.5-pro",
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Klassifiziere Recruiting-Dokumente strikt als cv, job_description oder unknown. Antworte nur ueber den Tool-Call.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Ordne dieses Dokument ein. Dateiname: ${filename}`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${buffer.toString("base64")}`,
+              },
+            },
+          ],
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "classify_document_kind",
+            description: "Klassifiziert ein Dokument als Lebenslauf oder Jobbeschreibung.",
+            parameters: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                detected_kind: { type: "string", enum: ["cv", "job_description", "unknown"] },
+                confidence: { type: "string", enum: ["high", "low"] },
+                reason: { type: "string" },
+              },
+              required: ["detected_kind", "confidence", "reason"],
+            },
+            strict: true,
+          },
+        },
+      ],
+      tool_choice: {
+        type: "function",
+        function: {
+          name: "classify_document_kind",
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new ExtractionError("INTERNAL", "Dokumenttyp konnte fuer PDF nicht validiert werden.", response.status);
+  }
+
+  const payload = await response.json();
+  const rawArguments = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+
+  if (!rawArguments) {
+    throw new ExtractionError("INVALID_RESPONSE", "Die Dokumenttyp-Pruefung hat kein Ergebnis geliefert.", 502);
+  }
+
+  const parsed = JSON.parse(rawArguments) as {
+    confidence: "high" | "low";
+    detected_kind: DocumentKind | "unknown";
+    reason: string;
+  };
+
+  return {
+    confidence: parsed.confidence,
+    detectedKind: parsed.detected_kind,
+    reason: parsed.reason,
+  } satisfies UploadClassification;
+}
+
+export async function verifyUploadMatchesExpectedKind({
+  expectedKind,
+  filename,
+  mimeType,
+  buffer,
+  apiKey,
+}: {
+  apiKey?: string;
+  buffer: Buffer;
+  expectedKind: DocumentKind;
+  filename: string;
+  mimeType: string;
+}) {
+  const heuristicText =
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ? await extractDocxText(buffer)
+      : mimeType === "text/plain"
+        ? extractTxtText(buffer)
+        : null;
+
+  let classification = classifyByHeuristics({
+    filename,
+    text: heuristicText,
+  });
+
+  if (mimeType === "application/pdf" && apiKey) {
+    classification = await classifyPdfWithGemini({
+      apiKey,
+      buffer,
+      filename,
+      mimeType,
+    });
+  }
+
+  if (classification.detectedKind !== "unknown" && classification.detectedKind !== expectedKind) {
+    const expectedLabel = expectedKind === "cv" ? "CV" : "Jobbeschreibung";
+    const detectedLabel = classification.detectedKind === "cv" ? "CV" : "Jobbeschreibung";
+    throw new ExtractionError(
+      "INTERNAL",
+      `Falscher Dokumenttyp: Erwartet wurde ${expectedLabel}, erkannt wurde jedoch ${detectedLabel}. ${classification.reason}`,
+      400,
+    );
+  }
 }
 
 const cvToolSchema = {
@@ -489,6 +711,7 @@ export async function insertDocumentRow({
   mimeType: string;
 }) {
   const { error } = await supabase.from("documents").insert({
+    application_status: "new",
     id: documentId,
     user_id: userId,
     kind,

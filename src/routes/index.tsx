@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "TalentFlow - Recruiting Workspace" },
+      { title: "TalentFlow - Recruiting-Arbeitsbereich" },
       { name: "description", content: "Strukturierte, AGG-konforme Interviewvorbereitung fur Metafinanz / HTM." },
     ],
   }),
@@ -38,6 +38,14 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const { jobs, applications, authError } = Route.useLoaderData();
+
+  const formatVerarbeitungsstatus = (status: string) => {
+    if (status === "uploaded") return "Hochgeladen";
+    if (status === "processing") return "In Verarbeitung";
+    if (status === "extracted") return "Extrahiert";
+    if (status === "failed") return "Fehlgeschlagen";
+    return status;
+  };
 
   const stats = [
     { label: "Jobs", value: jobs.length, icon: Briefcase },
@@ -53,7 +61,7 @@ function Index() {
   return (
     <AppShell>
       <PageHeader
-        title="Ubersicht"
+        title="Uebersicht"
         description="Status der laufenden Recruiting-Pipeline - Jobs und Bewerbungen im Blick."
         actions={
           <Button asChild>
@@ -65,16 +73,14 @@ function Index() {
       />
 
       <div className="space-y-8 px-6 py-8 md:px-10">
-        {authError && (
-          <AuthRequiredCard message={authError} />
-        )}
+        {authError && <AuthRequiredCard message={authError} />}
 
         <div className="relative overflow-hidden rounded-2xl border border-border bg-spectral-soft p-6 md:p-8">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral" />
           <div className="max-w-2xl">
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1f004c]/70">metafinanz · HTM</div>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-              Wir bringen <span className="text-spectral">Zukunftsfahigkeit</span> ans Licht.
+              Wir bringen <span className="text-spectral">Zukunftsfaehigkeit</span> ans Licht.
             </h2>
             <p className="mt-2 max-w-xl text-sm text-foreground/70">
               Strukturierte, AGG-konforme Interviewvorbereitung mit echten Dokumentdaten aus Supabase.
@@ -121,7 +127,7 @@ function Index() {
                         </div>
                       </div>
                       <StatusPill tone={job.status === "extracted" ? "success" : job.status === "processing" ? "warning" : "neutral"}>
-                        {job.status}
+                        {formatVerarbeitungsstatus(job.status)}
                       </StatusPill>
                     </li>
                   );
@@ -168,9 +174,9 @@ function Index() {
         </div>
 
         <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold text-foreground">Teams</h2>
+          <h2 className="mb-4 text-sm font-semibold text-foreground">Teamkontext</h2>
           <p className="text-sm text-muted-foreground">
-            Teamdaten sind aktuell noch nicht als eigene Supabase-Ressource modelliert. Die Seite zeigt daher bewusst keine Mock-Daten mehr an.
+            Teams werden ueber die Teamkontext-Seite gepflegt und stehen dort fuer Upload und Verwaltung bereit.
           </p>
         </section>
       </div>

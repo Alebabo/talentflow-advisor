@@ -4,11 +4,12 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { AuthRequiredCard } from "@/components/auth-required-card";
 import { UploadProgressPopup } from "@/components/upload-progress-popup";
 import { StatusPill } from "@/components/status-pill";
+import { deleteDocument, listDocuments } from "@/extraction.functions";
+import { useDocumentUpload } from "@/hooks/useDocumentUpload";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useDocumentUpload } from "@/hooks/useDocumentUpload";
-import { listDocuments } from "@/extraction.functions";
-import { Building2, Layers, Loader2, MapPin, Search, Upload } from "lucide-react";
+import { Building2, Layers, Loader2, MapPin, Search, Trash2, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/jobs")({
   head: () => ({
@@ -23,11 +24,19 @@ export const Route = createFileRoute("/jobs")({
 function JobsPage() {
   const [documents, setDocuments] = useState<Awaited<ReturnType<typeof listDocuments>>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadDocuments = async () => {
+  const loadDocuments = async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
+      if (silent) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
       setLoadError(null);
       const result = await listDocuments({
         data: {
@@ -39,6 +48,7 @@ function JobsPage() {
       setLoadError(error instanceof Error ? error.message : "Jobs konnten nicht geladen werden.");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -46,16 +56,34 @@ function JobsPage() {
     void loadDocuments();
   }, []);
 
-  const { inputRef, handleFileChange, openPicker, isUploading, error, activeDocumentId, isPopupVisible, progress, statusLabel } =
+  const { inputRef, handleFileChange, openPicker, isUploading, error, activeDocumentId, isIndeterminate, isPopupVisible, progress, statusLabel } =
     useDocumentUpload({
       kind: "job_description",
       onUploaded: () => {
-        void loadDocuments();
+        void loadDocuments({ silent: true });
       },
       onSettled: () => {
-        void loadDocuments();
+        void loadDocuments({ silent: true });
       },
     });
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      setDeletingId(documentId);
+      setLoadError(null);
+      await deleteDocument({
+        data: {
+          id: documentId,
+        },
+      });
+      setDocuments((current) => current.filter((document) => document.id !== documentId));
+      void loadDocuments({ silent: true });
+    } catch (deleteError) {
+      setLoadError(deleteError instanceof Error ? deleteError.message : "Job konnte nicht geloescht werden.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const filteredDocuments = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -118,27 +146,33 @@ function JobsPage() {
       />
 
       <div className="space-y-6 px-6 py-8 md:px-10">
-        <div className="flex items-center gap-3 max-w-md">
+        <div className="flex max-w-md items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Jobs durchsuchen..."
-              className="pl-9 bg-card"
+              className="bg-card pl-9"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
         </div>
 
-        {(error || loadError || activeDocumentId) && (
-          (error || loadError) === "Anmeldung erforderlich." ? (
+        {isRefreshing && !isLoading && (
+          <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Jobliste wird aktualisiert...
+          </div>
+        )}
+
+        {(error || loadError || activeDocumentId) &&
+          ((error || loadError) === "Anmeldung erforderlich." ? (
             <AuthRequiredCard message={error || loadError} />
           ) : (
             <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
               {error || loadError || `Dokument ${activeDocumentId} wird gerade verarbeitet.`}
             </div>
-          )
-        )}
+          ))}
 
         {isLoading ? (
           <div className="rounded-xl border border-border bg-card p-8 text-sm text-muted-foreground">
@@ -157,8 +191,7 @@ function JobsPage() {
               const location = extraction && "location" in extraction ? extraction.location : null;
               const seniority = extraction && "seniority" in extraction ? extraction.seniority : null;
               const summary = extraction && "summary" in extraction ? extraction.summary : null;
-              const skills =
-                extraction && "required_skills" in extraction ? extraction.required_skills.slice(0, 4) : [];
+              const skills = extraction && "required_skills" in extraction ? extraction.required_skills.slice(0, 4) : [];
 
               return (
                 <article
@@ -173,13 +206,11 @@ function JobsPage() {
                         {company || "Unternehmen nicht erkannt"}
                       </div>
                     </div>
-                    <StatusPill tone={mapStatusTone(document.status)}>
-                      {formatStatusLabel(document.status)}
-                    </StatusPill>
+                    <StatusPill tone={mapStatusTone(document.status)}>{formatStatusLabel(document.status)}</StatusPill>
                   </div>
 
                   <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-                    {summary || "Noch keine inhaltliche Zusammenfassung verfügbar."}
+                    {summary || "Noch keine inhaltliche Zusammenfassung verfuegbar."}
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -194,8 +225,40 @@ function JobsPage() {
                   </div>
 
                   <div className="mt-4 space-y-3 border-t border-border pt-4">
-                    <div className="text-xs text-muted-foreground">
-                      Quelle: {document.filename} · {new Date(document.created_at).toLocaleDateString("de-DE")}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs text-muted-foreground">
+                        Quelle: {document.filename} · {new Date(document.created_at).toLocaleDateString("de-DE")}
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-muted-foreground hover:text-destructive"
+                            disabled={deletingId === document.id}
+                          >
+                            {deletingId === document.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Job entfernen?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Die Jobbeschreibung und ihre Extraktion werden dauerhaft geloescht.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => void handleDeleteDocument(document.id)}>
+                              Loeschen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {skills.length > 0 ? (
@@ -219,6 +282,7 @@ function JobsPage() {
 
       <UploadProgressPopup
         title="Job wird hochgeladen"
+        isIndeterminate={isIndeterminate}
         isVisible={isPopupVisible || isUploading || !!activeDocumentId}
         progress={progress}
         statusLabel={statusLabel}

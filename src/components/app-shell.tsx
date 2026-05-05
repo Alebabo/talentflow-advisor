@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 import metafinanzLogo from "@/assets/metafinanz-logo.jpg";
 
 const nav = [
-  { to: "/", label: "Ubersicht", icon: LayoutGrid },
+  { to: "/", label: "Uebersicht", icon: LayoutGrid },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/applications", label: "Applications", icon: FileText },
-  { to: "/teams", label: "Teams", icon: Users },
-  { to: "/workspace", label: "Interview Workspace", icon: Sparkles, highlight: true },
+  { to: "/applications", label: "Bewerbungen", icon: FileText },
+  { to: "/teams", label: "Teamkontext", icon: Users },
+  { to: "/workspace", label: "Interview-Arbeitsbereich", icon: Sparkles, highlight: true },
   { to: "/leitfaden", label: "Interview-Leitfaden", icon: BookOpen },
 ];
 
@@ -32,7 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <img src={metafinanzLogo} alt="metafinanz" className="h-11 w-11 rounded-full object-contain" />
           <div>
             <div className="text-sm font-semibold leading-none tracking-tight text-white">TalentFlow</div>
-            <div className="mt-1.5 text-[11px] text-white/70">by metafinanz</div>
+            <div className="mt-1.5 text-[11px] text-white/70">von metafinanz</div>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             AGG-Compliance aktiv
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-white/70">
-            Alle generierten Fragen werden auf rechtlich kritische Inhalte gepruft.
+            Alle generierten Fragen werden auf rechtlich kritische Inhalte geprueft.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="text-xs">
             <div className="font-medium text-white">Anna Vollmer</div>
-            <div className="text-white/70">Hiring Manager</div>
+            <div className="text-white/70">Fachbereich</div>
           </div>
         </div>
       </aside>
