@@ -21,7 +21,7 @@ function ApplicationsPage() {
     <AppShell>
       <PageHeader
         title="Applications"
-        description="Bibliothek aller Bewerbungen. Eine Zuordnung zu Jobs erfolgt erst im Interview Workspace."
+        
         actions={
           <>
             <Button variant="outline">
