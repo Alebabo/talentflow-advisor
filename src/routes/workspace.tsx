@@ -373,8 +373,8 @@ function WorkspacePage() {
             {/* I Feedback */}
             <SectionCard icon={MessageSquare} title="Feedback nach dem Interview">
               <div className="grid md:grid-cols-2 gap-4">
-                <FieldRow label="Interviewer Name"><input className="form-input" placeholder="z. B. Markus Hentschel" /></FieldRow>
-                <FieldRow label="Interviewer Rolle"><input className="form-input" placeholder="z. B. Team Lead" /></FieldRow>
+                <FieldRow label="Interviewer Name"><Input placeholder="z. B. Markus Hentschel" /></FieldRow>
+                <FieldRow label="Interviewer Rolle"><Input placeholder="z. B. Team Lead" /></FieldRow>
                 <FieldRow label="Beobachtete Stärken"><Textarea rows={3} placeholder="Konkrete Beobachtungen, mit Beispiel…" /></FieldRow>
                 <FieldRow label="Beobachtete Risiken"><Textarea rows={3} placeholder="Was bleibt offen oder unklar?" /></FieldRow>
                 <FieldRow label="Culture-Fit-Notizen" full><Textarea rows={3} placeholder="Passung zu Werten und Arbeitsweise des Teams…" /></FieldRow>
