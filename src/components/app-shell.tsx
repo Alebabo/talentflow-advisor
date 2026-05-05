@@ -22,14 +22,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
-        <div className="flex h-16 items-center gap-2 px-5 border-b border-sidebar-border">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-semibold">
-            TF
+      <aside className="hidden md:flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground relative overflow-hidden">
+        {/* spectral accent line */}
+        <div className="absolute left-0 top-0 h-full w-[3px] bg-spectral" />
+
+        <div className="flex h-16 items-center gap-3 px-5 border-b border-sidebar-border">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-spectral text-[#1f004c] font-bold text-sm shadow-[var(--shadow-glow)]">
+            tf
           </div>
           <div>
-            <div className="text-sm font-semibold text-sidebar-foreground leading-none">TalentFlow</div>
-            <div className="text-[11px] text-muted-foreground mt-1">Recruiting Workspace</div>
+            <div className="text-sm font-semibold leading-none tracking-tight">TalentFlow</div>
+            <div className="text-[11px] text-sidebar-foreground/60 mt-1">Recruiting Workspace</div>
           </div>
         </div>
 
@@ -42,37 +45,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                  item.highlight && !active && "text-primary",
+                    ? "bg-sidebar-accent text-sidebar-foreground font-medium"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] bg-spectral rounded-r" />}
+                <Icon className={cn("h-4 w-4", item.highlight && "text-[#00f0c5]")} />
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="m-3 rounded-lg border border-sidebar-border bg-card p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-            <ShieldCheck className="h-4 w-4 text-success" />
+        <div className="m-3 rounded-lg border border-sidebar-border bg-sidebar-accent p-3">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <ShieldCheck className="h-4 w-4 text-[#64e100]" />
             AGG-Compliance aktiv
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+          <p className="mt-1 text-[11px] text-sidebar-foreground/60 leading-relaxed">
             Alle generierten Fragen werden auf rechtlich kritische Inhalte geprüft.
           </p>
         </div>
 
         <div className="border-t border-sidebar-border p-3 flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-semibold">
+          <div className="h-8 w-8 rounded-full bg-spectral text-[#1f004c] flex items-center justify-center text-xs font-bold">
             AV
           </div>
           <div className="text-xs">
-            <div className="font-medium text-sidebar-foreground">Anna Vollmer</div>
-            <div className="text-muted-foreground">Hiring Manager</div>
+            <div className="font-medium">Anna Vollmer</div>
+            <div className="text-sidebar-foreground/60">Hiring Manager</div>
           </div>
         </div>
       </aside>
@@ -92,12 +95,13 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-border bg-card/40 px-6 py-6 md:px-10">
+    <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between bg-card px-6 py-7 md:px-10">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground max-w-2xl">{description}</p>}
+        <h1 className="text-[28px] font-semibold text-foreground tracking-tight leading-tight">{title}</h1>
+        {description && <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-spectral opacity-80" />
     </div>
   );
 }

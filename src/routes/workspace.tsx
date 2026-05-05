@@ -174,7 +174,12 @@ function WorkspacePage() {
               Die KI liefert Vorbereitung und Hypothesen – keine Entscheidung. Finale Bewertung
               erfolgt durch das Interview-Panel.
             </p>
-            <Button size="lg" onClick={handleGenerate} disabled={loading}>
+            <Button
+              size="lg"
+              onClick={handleGenerate}
+              disabled={loading}
+              className="relative overflow-hidden bg-[#1f004c] hover:bg-[#2a0a66] text-[#fffcd9] shadow-[var(--shadow-glow)] before:absolute before:inset-x-0 before:bottom-0 before:h-[2px] before:bg-spectral"
+            >
               {loading ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generiere…</>
               ) : (
