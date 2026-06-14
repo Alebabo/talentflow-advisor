@@ -37,8 +37,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="h-11 w-11 rounded-full object-contain"
           />
           <div>
-            <div className="text-sm font-semibold leading-none tracking-tight text-foreground">TalentFlow</div>
-            <div className="text-[11px] text-muted-foreground mt-1.5">by metafinanz</div>
+            <div className="text-sm font-semibold leading-none tracking-tight text-sidebar-foreground">TalentFlow</div>
+            <div className="text-[11px] text-sidebar-foreground/65 mt-1.5">by metafinanz</div>
           </div>
         </div>
 
@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               >
                 {active && <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-6 w-[3px] bg-spectral rounded-r" />}
-                <Icon className={cn("h-4 w-4", active ? "text-[#854bff]" : "text-current/70", item.highlight && !active && "text-[#854bff]")} />
+                <Icon className={cn("h-4 w-4", active ? "text-[#00f0c5]" : "text-current/70", item.highlight && !active && "text-[#00f0c5]")} />
                 <span>{item.label}</span>
               </Link>
             );
@@ -67,11 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="m-3 rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3 relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-spectral" />
-          <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+          <div className="flex items-center gap-2 text-xs font-medium text-sidebar-foreground">
             <ShieldCheck className="h-4 w-4 text-[#0a8e76]" />
             AGG-Compliance aktiv
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+          <p className="mt-1 text-[11px] text-sidebar-foreground/65 leading-relaxed">
             Alle generierten Fragen werden auf rechtlich kritische Inhalte geprüft.
           </p>
         </div>
@@ -81,8 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             AV
           </div>
           <div className="text-xs">
-            <div className="font-medium text-foreground">Anna Vollmer</div>
-            <div className="text-muted-foreground">Hiring Manager</div>
+            <div className="font-medium text-sidebar-foreground">Anna Vollmer</div>
+            <div className="text-sidebar-foreground/65">Hiring Manager</div>
           </div>
         </div>
       </aside>
