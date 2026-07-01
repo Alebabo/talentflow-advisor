@@ -1,7 +1,7 @@
-@import "tailwindcss" source(none);
-@source "../src";
-@import "tw-animate-css";
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap");
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -71,15 +71,15 @@
   --radius: 0.75rem;
 
   /* metafinanz brand palette */
-  --brand-night: #1f004c;        /* Night Blue */
-  --brand-nature: #074440;       /* Nature Green */
-  --brand-purple: #854bff;       /* Sky Purple */
-  --brand-spark: #f93822;        /* Sparky Red */
-  --brand-green: #64e100;        /* Energy Green */
-  --brand-yellow: #fde600;       /* Lightning Yellow */
-  --brand-coral: #ffbeaa;        /* Sunset Coral */
-  --brand-interaction: #00f0c5;  /* Interaction Teal */
-  --brand-glow: #fffcd9;         /* Glowing White */
+  --brand-night: #1f004c; /* Night Blue */
+  --brand-nature: #074440; /* Nature Green */
+  --brand-purple: #854bff; /* Sky Purple */
+  --brand-spark: #f93822; /* Sparky Red */
+  --brand-green: #64e100; /* Energy Green */
+  --brand-yellow: #fde600; /* Lightning Yellow */
+  --brand-coral: #ffbeaa; /* Sunset Coral */
+  --brand-interaction: #00f0c5; /* Interaction Teal */
+  --brand-glow: #fffcd9; /* Glowing White */
 
   /* Gradients */
   --gradient-spectral: linear-gradient(90deg, #64e100 0%, #fde600 50%, #ffbeaa 100%);
@@ -96,30 +96,30 @@
   --popover: #ffffff;
   --popover-foreground: #1f004c;
 
-  --primary: #1f004c;            /* Night Blue carries the brand on UI */
+  --primary: #1f004c; /* Night Blue carries the brand on UI */
   --primary-foreground: #fffcd9;
-  --secondary: #f4eeff;          /* tinted purple wash */
+  --secondary: #f4eeff; /* tinted purple wash */
   --secondary-foreground: #1f004c;
   --muted: #f6f3fb;
   --muted-foreground: #5a4a7a;
-  --accent: #efe6ff;              /* Sky Purple wash */
+  --accent: #efe6ff; /* Sky Purple wash */
   --accent-foreground: #3a1d8a;
 
-  --destructive: #f93822;         /* Sparky Red */
+  --destructive: #f93822; /* Sparky Red */
   --destructive-foreground: #ffffff;
   --border: #ece6f5;
   --input: #f1ecf8;
   --ring: #854bff;
 
-  --success: #1f7a1f;             /* readable success on light */
+  --success: #1f7a1f; /* readable success on light */
   --success-foreground: #ffffff;
   --warning: #8a6a00;
   --warning-foreground: #fffcd9;
-  --info: #0a8e76;                /* derived from interaction teal */
+  --info: #0a8e76; /* derived from interaction teal */
 
-  --shadow-soft: 0 1px 2px rgba(31,0,76,0.04), 0 6px 18px rgba(31,0,76,0.06);
-  --shadow-card: 0 1px 3px rgba(31,0,76,0.05), 0 12px 28px -10px rgba(31,0,76,0.10);
-  --shadow-glow: 0 8px 32px -8px rgba(133,75,255,0.35);
+  --shadow-soft: 0 1px 2px rgba(31, 0, 76, 0.04), 0 6px 18px rgba(31, 0, 76, 0.06);
+  --shadow-card: 0 1px 3px rgba(31, 0, 76, 0.05), 0 12px 28px -10px rgba(31, 0, 76, 0.1);
+  --shadow-glow: 0 8px 32px -8px rgba(133, 75, 255, 0.35);
 
   --chart-1: #854bff;
   --chart-2: #00f0c5;
@@ -177,7 +177,8 @@
     border-color: var(--color-border);
   }
 
-  html, body {
+  html,
+  body {
     font-family: "Inter", "Alaska", system-ui, sans-serif;
     font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
@@ -188,16 +189,25 @@
     color: var(--color-foreground);
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: "Inter Tight", "Inter", "Alaska", system-ui, sans-serif;
     letter-spacing: -0.015em;
   }
 }
 
 @layer utilities {
-  .bg-spectral { background-image: var(--gradient-spectral); }
-  .bg-spectral-soft { background-image: var(--gradient-spectral-soft); }
-  .bg-night { background-image: var(--gradient-night); }
+  .bg-spectral {
+    background-image: var(--gradient-spectral);
+  }
+  .bg-spectral-soft {
+    background-image: var(--gradient-spectral-soft);
+  }
+  .bg-night {
+    background-image: var(--gradient-night);
+  }
   .text-spectral {
     background-image: var(--gradient-spectral);
     -webkit-background-clip: text;
@@ -207,6 +217,7 @@
   .border-spectral {
     border-image: var(--gradient-spectral) 1;
   }
-  .ring-glow { box-shadow: var(--shadow-glow); }
+  .ring-glow {
+    box-shadow: var(--shadow-glow);
+  }
 }
-

@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { StatusPill } from "@/components/status-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { exportInterviewSummaryPdf } from "@/lib/pdf-export";
+import {
+  createInterviewSummaryText,
+  getRecommendedQuestionIds,
+} from "@/lib/interview-recommendations";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -38,13 +44,17 @@ import {
   Lightbulb,
   Clock,
   Loader2,
+  Download,
 } from "lucide-react";
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
     meta: [
       { title: "Interview Workspace – TalentFlow" },
-      { name: "description", content: "Vier Kontextquellen zu einem AGG-konformen Interviewleitfaden zusammenführen." },
+      {
+        name: "description",
+        content: "Vier Kontextquellen zu einem AGG-konformen Interviewleitfaden zusammenführen.",
+      },
     ],
   }),
   component: WorkspacePage,
@@ -67,6 +77,45 @@ function WorkspacePage() {
   const job = jobs.find((j) => j.id === jobId);
   const team = teams.find((t) => t.id === teamId);
 
+  const initialRecommendationContext = {
+    application,
+    job,
+    team,
+    stage1,
+    questions: top10Questions,
+  };
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>(() =>
+    getRecommendedQuestionIds(initialRecommendationContext),
+  );
+  const [summaryText, setSummaryText] = useState(() =>
+    createInterviewSummaryText({ application, job, team, stage1 }),
+  );
+
+  const recommendationContext = useMemo(
+    () => ({
+      application,
+      job,
+      team,
+      stage1,
+      questions: top10Questions,
+    }),
+    [application, job, team, stage1],
+  );
+
+  const recommendedQuestionIds = useMemo(
+    () => getRecommendedQuestionIds(recommendationContext),
+    [recommendationContext],
+  );
+
+  const selectedQuestions = top10Questions.filter((question) =>
+    selectedQuestionIds.includes(question.id),
+  );
+
+  useEffect(() => {
+    setSelectedQuestionIds(recommendedQuestionIds);
+    setSummaryText(createInterviewSummaryText({ application, job, team, stage1 }));
+  }, [application, job, recommendedQuestionIds, stage1, team]);
+
   const handleGenerate = () => {
     setLoading(true);
     setGenerated(false);
@@ -76,15 +125,58 @@ function WorkspacePage() {
     }, 900);
   };
 
+  const canExportPdf = generated && !loading && Boolean(application && job && team);
+
+  const handleQuestionToggle = (questionId: string, checked: boolean) => {
+    setSelectedQuestionIds((current) => {
+      if (checked) return current.includes(questionId) ? current : [...current, questionId];
+      return current.filter((id) => id !== questionId);
+    });
+  };
+
+  const handlePdfExport = () => {
+    if (!application || !job || !team) {
+      toast.error("Bitte Application, Job und Team auswählen.");
+      return;
+    }
+    if (selectedQuestions.length === 0 || selectedQuestions.length > 6) {
+      toast.error("Bitte 1 bis 6 Fragen für den Steckbrief auswählen.");
+      return;
+    }
+
+    try {
+      const fileName = exportInterviewSummaryPdf({
+        application,
+        job,
+        team,
+        summaryText,
+        questions: selectedQuestions,
+        openRisks,
+        interviewGuide,
+      });
+      toast.success(`PDF exportiert: ${fileName}`);
+    } catch (error) {
+      console.error(error);
+      toast.error("PDF konnte nicht exportiert werden.");
+    }
+  };
+
   return (
     <AppShell>
       <PageHeader
         title="Interview Workspace"
         description="Vier Kontextquellen zu einem strukturierten, AGG-konformen Interviewleitfaden zusammenführen."
         actions={
-          <StatusPill tone="success">
-            <ShieldCheck className="h-3 w-3" /> AGG-geprüft
-          </StatusPill>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone="success">
+              <ShieldCheck className="h-3 w-3" /> AGG-geprüft
+            </StatusPill>
+            {generated && (
+              <Button variant="outline" onClick={handlePdfExport} disabled={!canExportPdf}>
+                <Download className="h-4 w-4 mr-2" /> PDF exportieren
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -110,42 +202,60 @@ function WorkspacePage() {
             <div className="space-y-2">
               <Label>Application / CV</Label>
               <Select value={appId} onValueChange={setAppId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {applications.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name} – {a.location}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} – {a.location}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {application && (
-                <p className="text-xs text-muted-foreground line-clamp-2">{application.shortProfile}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {application.shortProfile}
+                </p>
               )}
             </div>
 
             <div className="space-y-2">
               <Label>Job</Label>
               <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {jobs.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>{j.title}</SelectItem>
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.title}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {job && <p className="text-xs text-muted-foreground line-clamp-2">{job.shortDescription}</p>}
+              {job && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{job.shortDescription}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label>Team</Label>
               <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {team && <p className="text-xs text-muted-foreground line-clamp-2">{team.description}</p>}
+              {team && (
+                <p className="text-xs text-muted-foreground line-clamp-2">{team.description}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -181,9 +291,13 @@ function WorkspacePage() {
               className="relative overflow-hidden bg-[#1f004c] hover:bg-[#2a0a66] text-[#fffcd9] shadow-[var(--shadow-glow)] before:absolute before:inset-x-0 before:bottom-0 before:h-[2px] before:bg-spectral"
             >
               {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generiere…</>
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generiere…
+                </>
               ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Interviewleitfaden erzeugen</>
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" /> Interviewleitfaden erzeugen
+                </>
               )}
             </Button>
           </footer>
@@ -202,8 +316,8 @@ function WorkspacePage() {
             {/* B Preparation Summary */}
             <SectionCard
               icon={ScrollText}
-              title="Preparation Summary"
-              subtitle="Management-Zusammenfassung des Interviews"
+              title="Interview-Steckbrief"
+              subtitle="Stichpunkte fuer den Onepager"
             >
               <div className="grid md:grid-cols-3 gap-4 text-sm">
                 <SummaryBlock label="Rolle">{job?.title}</SummaryBlock>
@@ -212,29 +326,26 @@ function WorkspacePage() {
                 </SummaryBlock>
                 <SummaryBlock label="Team">{team?.name}</SummaryBlock>
               </div>
-              <div className="mt-4 grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Wichtigste Hypothesen</div>
-                  <ul className="text-sm space-y-1.5 text-foreground">
-                    <li>• Hohe Reflexionsfähigkeit, ruhiger Auftritt – verifizieren</li>
-                    <li>• Ambiguitätstoleranz im Plattform-Kontext zu prüfen</li>
-                    <li>• Mentoring-Erfahrung passt zum Teamwert „Wissensaustausch“</li>
-                  </ul>
-                </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Interviewfoki</div>
-                  <ul className="text-sm space-y-1.5 text-foreground">
-                    <li>• Architektur-Trade-offs und Entscheidungsstil</li>
-                    <li>• Stakeholder-Arbeit mit Fachbereich</li>
-                    <li>• Umgang mit unklaren Anforderungen</li>
-                  </ul>
-                </div>
-              </div>
               <div className="mt-5 rounded-lg bg-info/10 border border-info/20 p-4">
-                <div className="text-xs font-semibold text-info uppercase tracking-wide mb-1">Support Recommendation</div>
-                <p className="text-sm text-foreground">
-                  Empfehlung: zweistündiges Panel-Interview mit Hiring Manager, Team Lead und Peer.
-                  Fokus auf Deep Dive und Ambiguitäts-Szenario. Entscheidung im Anschluss gemeinsam dokumentieren.
+                <div className="flex items-center justify-between gap-3">
+                  <Label
+                    htmlFor="summary-text"
+                    className="text-xs font-semibold text-info uppercase tracking-wide"
+                  >
+                    Gespraechsfokus
+                  </Label>
+                  <StatusPill tone="info">editierbar</StatusPill>
+                </div>
+                <Textarea
+                  id="summary-text"
+                  value={summaryText}
+                  onChange={(event) => setSummaryText(event.target.value)}
+                  rows={3}
+                  className="mt-3 bg-background/80"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Bitte als kurze Stichpunkte pflegen. Lange Fliesstexte werden im Onepager
+                  gekuerzt.
                 </p>
               </div>
             </SectionCard>
@@ -264,7 +375,11 @@ function WorkspacePage() {
             </div>
 
             {/* A Interviewleitfaden */}
-            <SectionCard icon={Clock} title="Interviewleitfaden" subtitle="Strukturierter Gesprächsablauf · ca. 60 Min">
+            <SectionCard
+              icon={Clock}
+              title="Interviewleitfaden"
+              subtitle="Strukturierter Gesprächsablauf · ca. 60 Min"
+            >
               <ol className="relative border-l border-border ml-2 space-y-5">
                 {interviewGuide.map((p, i) => (
                   <li key={p.phase} className="pl-5 relative">
@@ -277,7 +392,9 @@ function WorkspacePage() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{p.goal}</p>
                     <ul className="mt-2 text-sm text-foreground space-y-1">
-                      {p.notes.map((n) => <li key={n}>– {n}</li>)}
+                      {p.notes.map((n) => (
+                        <li key={n}>– {n}</li>
+                      ))}
                     </ul>
                   </li>
                 ))}
@@ -285,17 +402,55 @@ function WorkspacePage() {
             </SectionCard>
 
             {/* D Top 10 questions */}
-            <SectionCard icon={MessageSquare} title="Top 10 personalisierte Fragen" subtitle="Mit Begründung und Quelle">
+            <SectionCard
+              icon={MessageSquare}
+              title="Top 10 personalisierte Fragen"
+              subtitle="KI-Vorauswahl für den Interview-Steckbrief"
+            >
+              <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <p className="text-xs text-muted-foreground max-w-2xl">
+                  Das Tool priorisiert Fragen aus Rolle, Team, Stage-1-Kommentaren und
+                  Metafinanz-Zukunftskompetenzen. Für den Onepager sind maximal 6 Fragen vorgesehen.
+                </p>
+                <StatusPill
+                  tone={
+                    selectedQuestions.length > 6 || selectedQuestions.length === 0
+                      ? "warning"
+                      : "success"
+                  }
+                >
+                  {selectedQuestions.length}/6 ausgewählt
+                </StatusPill>
+              </div>
               <div className="grid md:grid-cols-2 gap-3">
                 {top10Questions.map((q, i) => (
                   <div key={q.id} className="rounded-lg border border-border p-4 bg-background/40">
                     <div className="flex items-start gap-3">
-                      <div className="h-6 w-6 shrink-0 rounded-md bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
-                        {i + 1}
-                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestionIds.includes(q.id)}
+                        onChange={(event) =>
+                          handleQuestionToggle(q.id, event.currentTarget.checked)
+                        }
+                        aria-label={`Frage ${i + 1} für Steckbrief auswählen`}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border accent-primary"
+                      />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground leading-snug">{q.question}</p>
-                        <p className="text-xs text-muted-foreground mt-2">{q.why}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="h-6 w-6 shrink-0 rounded-md bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center">
+                            {i + 1}
+                          </div>
+                          {recommendedQuestionIds.includes(q.id) && (
+                            <StatusPill tone="primary">KI empfohlen</StatusPill>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-foreground leading-snug">
+                          {q.question}
+                        </p>
+                        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          <li>- {q.why}</li>
+                          <li>- Quelle: {q.reference}</li>
+                        </ul>
                         <div className="mt-3 flex flex-wrap items-center gap-1.5">
                           <StatusPill tone="info">{q.reference}</StatusPill>
                           {q.scenarioTag && <StatusPill tone="primary">{q.scenarioTag}</StatusPill>}
@@ -315,7 +470,11 @@ function WorkspacePage() {
             </div>
 
             {/* F Scenarios */}
-            <SectionCard icon={Lightbulb} title="Gesprächsszenarien" subtitle="Verschiedene Modi für unterschiedliche Signale">
+            <SectionCard
+              icon={Lightbulb}
+              title="Gesprächsszenarien"
+              subtitle="Verschiedene Modi für unterschiedliche Signale"
+            >
               <div className="grid md:grid-cols-2 gap-4">
                 {scenarios.map((s) => (
                   <div key={s.title} className="rounded-lg border border-border p-4">
@@ -326,7 +485,11 @@ function WorkspacePage() {
                     <p className="text-xs text-muted-foreground mt-1">{s.goal}</p>
                     <p className="text-sm text-foreground mt-3 leading-relaxed">{s.description}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {s.signals.map((sig) => <StatusPill key={sig} tone="info">{sig}</StatusPill>)}
+                      {s.signals.map((sig) => (
+                        <StatusPill key={sig} tone="info">
+                          {sig}
+                        </StatusPill>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -334,17 +497,27 @@ function WorkspacePage() {
             </SectionCard>
 
             {/* G Compliance */}
-            <SectionCard icon={ShieldCheck} title="Company Fit & Compliance" tone="success" subtitle="AGG-konforme Dokumentationshilfe">
+            <SectionCard
+              icon={ShieldCheck}
+              title="Company Fit & Compliance"
+              tone="success"
+              subtitle="AGG-konforme Dokumentationshilfe"
+            >
               <div className="grid md:grid-cols-3 gap-4 text-sm">
                 <div className="rounded-lg border border-success/30 bg-success/5 p-4">
-                  <div className="text-xs font-semibold text-success uppercase tracking-wide">Status</div>
+                  <div className="text-xs font-semibold text-success uppercase tracking-wide">
+                    Status
+                  </div>
                   <p className="mt-1 font-medium text-foreground">AGG-konform</p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Keine Fragen zu Alter, Herkunft, Religion, Familienstand, Gesundheit oder politischer Einstellung.
+                    Keine Fragen zu Alter, Herkunft, Religion, Familienstand, Gesundheit oder
+                    politischer Einstellung.
                   </p>
                 </div>
                 <div className="rounded-lg border border-border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Erlaubte Evidenz</div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Erlaubte Evidenz
+                  </div>
                   <ul className="mt-2 space-y-1 text-sm text-foreground">
                     <li>– Beobachtbares Verhalten im Gespräch</li>
                     <li>– Konkrete Projektreferenzen</li>
@@ -352,14 +525,20 @@ function WorkspacePage() {
                   </ul>
                 </div>
                 <div className="rounded-lg border border-border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Offene Risiken</div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Offene Risiken
+                  </div>
                   <ul className="mt-2 space-y-1 text-sm text-foreground">
                     <li>– Subjektive „Bauchgefühl“-Notizen vermeiden</li>
                     <li>– Eindrücke immer mit Beispiel belegen</li>
                   </ul>
                 </div>
               </div>
-              <Textarea className="mt-5" rows={3} placeholder="Dokumentationsfähige Notizen für die Akte…" />
+              <Textarea
+                className="mt-5"
+                rows={3}
+                placeholder="Dokumentationsfähige Notizen für die Akte…"
+              />
             </SectionCard>
 
             {/* H Panel */}
@@ -378,11 +557,21 @@ function WorkspacePage() {
             {/* I Feedback */}
             <SectionCard icon={MessageSquare} title="Feedback nach dem Interview">
               <div className="grid md:grid-cols-2 gap-4">
-                <FieldRow label="Interviewer Name"><Input placeholder="z. B. Markus Hentschel" /></FieldRow>
-                <FieldRow label="Interviewer Rolle"><Input placeholder="z. B. Team Lead" /></FieldRow>
-                <FieldRow label="Beobachtete Stärken"><Textarea rows={3} placeholder="Konkrete Beobachtungen, mit Beispiel…" /></FieldRow>
-                <FieldRow label="Beobachtete Risiken"><Textarea rows={3} placeholder="Was bleibt offen oder unklar?" /></FieldRow>
-                <FieldRow label="Culture-Fit-Notizen" full><Textarea rows={3} placeholder="Passung zu Werten und Arbeitsweise des Teams…" /></FieldRow>
+                <FieldRow label="Interviewer Name">
+                  <Input placeholder="z. B. Markus Hentschel" />
+                </FieldRow>
+                <FieldRow label="Interviewer Rolle">
+                  <Input placeholder="z. B. Team Lead" />
+                </FieldRow>
+                <FieldRow label="Beobachtete Stärken">
+                  <Textarea rows={3} placeholder="Konkrete Beobachtungen, mit Beispiel…" />
+                </FieldRow>
+                <FieldRow label="Beobachtete Risiken">
+                  <Textarea rows={3} placeholder="Was bleibt offen oder unklar?" />
+                </FieldRow>
+                <FieldRow label="Culture-Fit-Notizen" full>
+                  <Textarea rows={3} placeholder="Passung zu Werten und Arbeitsweise des Teams…" />
+                </FieldRow>
               </div>
               <div className="mt-5 flex justify-end gap-2">
                 <Button variant="outline">Entwurf speichern</Button>
@@ -410,11 +599,17 @@ function SectionCard({
   tone?: "neutral" | "success" | "warning";
 }) {
   const accent =
-    tone === "success" ? "text-success" : tone === "warning" ? "text-warning-foreground" : "text-primary";
+    tone === "success"
+      ? "text-success"
+      : tone === "warning"
+        ? "text-warning-foreground"
+        : "text-primary";
   return (
     <section className="rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]">
       <header className="px-6 py-4 border-b border-border flex items-start gap-3">
-        <div className={`h-9 w-9 shrink-0 rounded-lg bg-muted flex items-center justify-center ${accent}`}>
+        <div
+          className={`h-9 w-9 shrink-0 rounded-lg bg-muted flex items-center justify-center ${accent}`}
+        >
           <Icon className="h-4 w-4" />
         </div>
         <div>
@@ -452,7 +647,15 @@ function QuestionList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function FieldRow({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function FieldRow({
+  label,
+  children,
+  full,
+}: {
+  label: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
       <Label className="mb-1.5 block">{label}</Label>
