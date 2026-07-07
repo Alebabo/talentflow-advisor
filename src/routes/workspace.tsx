@@ -195,10 +195,8 @@ function WorkspacePage() {
       toast.error("Bitte Application, Job und Team auswählen.");
       return;
     }
-    if (selectedQuestions.length !== 8) {
-      toast.error(
-        "Bitte genau 8 Fragen auswählen: 4 technische/job-spezifische, 2 Soft Skill, 2 Team/Culture.",
-      );
+    if (selectedQuestions.length === 0 || selectedQuestions.length > 6) {
+      toast.error("Bitte 1 bis 6 Fragen fuer den Steckbrief auswaehlen.");
       return;
     }
 
@@ -509,14 +507,18 @@ function WorkspacePage() {
               <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <p className="text-xs text-muted-foreground max-w-2xl">
                   Das Tool priorisiert Fragen aus Rolle, Team, Stage-1-Kommentaren und
-                  Metafinanz-Zukunftskompetenzen. Fuer den Onepager sind genau 8 Fragen
-                  vorgesehen: 4 technische/job-spezifische, 2 Soft-Skill- und 2
-                  Team-/Culture-Fit-Fragen. CV-Luecken bleiben im Risikocheck sichtbar.
+                  Metafinanz-Zukunftskompetenzen. Fuer den Onepager sind hoechstens 6 Fragen
+                  vorgesehen: bevorzugt 3 technische/job-spezifische, 2 Soft-Skill- und 1
+                  Team-/Culture-Fit-Frage. CV-Luecken bleiben im Risikocheck sichtbar.
                 </p>
                 <StatusPill
-                  tone={selectedQuestions.length === 8 ? "success" : "warning"}
+                  tone={
+                    selectedQuestions.length === 0 || selectedQuestions.length > 6
+                      ? "warning"
+                      : "success"
+                  }
                 >
-                  {selectedQuestions.length}/8 ausgewählt
+                  {selectedQuestions.length}/6 ausgewählt
                 </StatusPill>
               </div>
               <div className="grid md:grid-cols-2 gap-3">

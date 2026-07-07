@@ -68,10 +68,11 @@ const TEAM_CULTURE_SIGNALS = [
 const CV_GAP_SIGNALS = ["luecke", "lucke", "wechsel", "uebergang", "station", "lebenslauf"];
 
 const QUESTION_TARGETS = {
-  technical: 4,
+  technical: 3,
   soft: 2,
-  culture: 2,
+  culture: 1,
 };
+const QUESTION_LIMIT = Object.values(QUESTION_TARGETS).reduce((sum, count) => sum + count, 0);
 
 const QUESTION_CATEGORY_BY_ID: Record<string, keyof typeof QUESTION_TARGETS> = {
   q1: "technical",
@@ -179,7 +180,7 @@ export function getRecommendedQuestionIds(context: InterviewRecommendationContex
   const takeQuestions = (predicate: (question: Question) => boolean, count: number) => {
     let added = 0;
     for (const item of scoredQuestions) {
-      if (selected.size >= 8) break;
+      if (selected.size >= QUESTION_LIMIT) break;
       if (selected.has(item.id) || !predicate(item.question)) continue;
       selected.set(item.id, item);
       added += 1;
@@ -192,7 +193,7 @@ export function getRecommendedQuestionIds(context: InterviewRecommendationContex
   takeQuestions(isTeamCultureQuestion, QUESTION_TARGETS.culture);
 
   for (const item of scoredQuestions) {
-    if (selected.size >= 8) break;
+    if (selected.size >= QUESTION_LIMIT) break;
     if (!selected.has(item.id)) selected.set(item.id, item);
   }
 

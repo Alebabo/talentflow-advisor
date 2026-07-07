@@ -322,14 +322,14 @@ export function exportInterviewSummaryPdf({
 
   const drawQuestions = () => {
     const topY = 125;
-    sectionTitle("8 Fragen mit klarer Prioritaet", page.marginX, topY, contentWidth);
+    sectionTitle("6 Fragen mit klarer Prioritaet", page.marginX, topY, contentWidth);
     const gap = 4;
     const colWidth = (contentWidth - gap) / 2;
     const cardHeight = 24.2;
     const rowGap = 2.1;
     const startY = topY + 12;
 
-    questions.slice(0, 8).forEach((question, index) => {
+    questions.slice(0, 6).forEach((question, index) => {
       const x = page.marginX + (index % 2) * (colWidth + gap);
       const y = startY + Math.floor(index / 2) * (cardHeight + rowGap);
       drawCard(x, y, colWidth, cardHeight);

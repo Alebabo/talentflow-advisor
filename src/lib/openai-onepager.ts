@@ -72,7 +72,7 @@ export const generateInterviewOnepager = createServerFn({ method: "POST" })
           },
           {
             role: "user",
-            content: `${data.prompt}\n\nGib jetzt nur den Abschnitt Gespraechsfokus als 4-6 kurze Stichpunkte zurueck. Behalte die Vorgabe 4 technische/job-spezifische, 2 Soft-Skill- und 2 Team-/Culture-Fit-Fragen sowie den CV-Luecken-Check bei.`,
+            content: `${data.prompt}\n\nGib jetzt nur den Abschnitt Gespraechsfokus als 4-6 kurze Stichpunkte zurueck. Behalte die Obergrenze von 6 Interviewfragen, die Soft-Skill-Balance und den CV-Luecken-Check bei.`,
           },
         ],
         max_output_tokens: 700,
