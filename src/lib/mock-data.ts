@@ -295,6 +295,14 @@ export const top10Questions: Question[] = [
     why: "Erwartungsmanagement und Selbstbild für die Rolle.",
     reference: "Workspace-Leitfrage: 'Passt die Person zu Team und Unternehmen?'",
   },
+  {
+    id: "q11",
+    question:
+      "Wenn du auf deinen Lebenslauf schaust: Welche beruflichen Uebergaenge oder Pausen sollten wir richtig verstehen?",
+    why: "Klaert moegliche CV-Luecken respektvoll, ohne private oder AGG-kritische Gruende abzufragen.",
+    reference: "CV: Zeitliche Stationen und Wechselgruende pruefen",
+    scenarioTag: "CV-Luecken",
+  },
 ];
 
 export const softSkillQuestions = [
@@ -359,6 +367,7 @@ export const openRisks = [
   "Konkrete Erfahrung mit DataOps-Praktiken im CV nicht eindeutig – im Interview verifizieren.",
   "Wechselmotivation bisher nur knapp adressiert – im Gespräch vertiefen.",
   "Stakeholder-Arbeit mit Fachbereichen außerhalb Tech bisher wenig sichtbar – konkret nachfragen.",
+  "Zeitliche Luecken, Uebergaenge oder unklare Stationen im Lebenslauf offen und AGG-konform klaeren.",
 ];
 
 export const interviewPanel = [

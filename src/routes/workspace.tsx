@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { StatusPill } from "@/components/status-pill";
@@ -7,7 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { exportInterviewSummaryPdf } from "@/lib/pdf-export";
+import { readLastUploadedApplicationId, useApplications } from "@/lib/application-storage";
+import { buildInterviewOnepagerPromptContext } from "@/lib/interview-master-prompt";
+import { generateInterviewOnepager } from "@/lib/openai-onepager";
 import {
+  createCvGapReviewText,
   createInterviewSummaryText,
   getRecommendedQuestionIds,
 } from "@/lib/interview-recommendations";
@@ -20,7 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  applications,
   jobs,
   teams,
   interviewGuide,
@@ -45,6 +49,8 @@ import {
   Clock,
   Loader2,
   Download,
+  FileCode2,
+  RotateCcw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/workspace")({
@@ -61,6 +67,8 @@ export const Route = createFileRoute("/workspace")({
 });
 
 function WorkspacePage() {
+  const { applications, uploadedApplications } = useApplications();
+  const generateOnepager = useServerFn(generateInterviewOnepager);
   const [appId, setAppId] = useState<string>("a1");
   const [jobId, setJobId] = useState<string>("j1");
   const [teamId, setTeamId] = useState<string>("t1");
@@ -72,6 +80,7 @@ function WorkspacePage() {
   );
   const [generated, setGenerated] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [promptEdited, setPromptEdited] = useState(false);
 
   const application = applications.find((a) => a.id === appId);
   const job = jobs.find((j) => j.id === jobId);
@@ -110,19 +119,66 @@ function WorkspacePage() {
   const selectedQuestions = top10Questions.filter((question) =>
     selectedQuestionIds.includes(question.id),
   );
+  const risksWithCvGap = useMemo(
+    () => {
+      const hasCvGapRisk = openRisks.some((risk) => risk.includes("Luecken") || risk.includes("Lücken"));
+      return Array.from(new Set(hasCvGapRisk ? openRisks : [...openRisks, createCvGapReviewText(application)]));
+    },
+    [application],
+  );
+  const defaultPromptText = useMemo(
+    () =>
+      buildInterviewOnepagerPromptContext({
+        application,
+        job,
+        team,
+        teamContext,
+        stage1Comments: stage1,
+        interviewGuide,
+        questions: top10Questions,
+        openRisks: risksWithCvGap,
+      }),
+    [application, job, risksWithCvGap, stage1, team, teamContext],
+  );
+  const [promptText, setPromptText] = useState(defaultPromptText);
+
+  useEffect(() => {
+    const lastUploadedApplicationId = readLastUploadedApplicationId();
+    const lastUploadedApplication = uploadedApplications.find((a) => a.id === lastUploadedApplicationId);
+    const preferredUploadedApplication = lastUploadedApplication ?? uploadedApplications[0];
+    if (preferredUploadedApplication && appId === "a1") {
+      setAppId(preferredUploadedApplication.id);
+    }
+  }, [appId, uploadedApplications]);
 
   useEffect(() => {
     setSelectedQuestionIds(recommendedQuestionIds);
     setSummaryText(createInterviewSummaryText({ application, job, team, stage1 }));
   }, [application, job, recommendedQuestionIds, stage1, team]);
 
-  const handleGenerate = () => {
+  useEffect(() => {
+    if (!promptEdited) setPromptText(defaultPromptText);
+  }, [defaultPromptText, promptEdited]);
+
+  const resetPrompt = () => {
+    setPromptText(defaultPromptText);
+    setPromptEdited(false);
+  };
+
+  const handleGenerate = async () => {
     setLoading(true);
     setGenerated(false);
-    setTimeout(() => {
+    try {
+      const result = await generateOnepager({ data: { prompt: promptText } });
+      setSummaryText(result.text);
+      toast.success("Interviewleitfaden mit OpenAI aktualisiert.");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "OpenAI Generierung fehlgeschlagen.");
+    } finally {
       setLoading(false);
       setGenerated(true);
-    }, 900);
+    }
   };
 
   const canExportPdf = generated && !loading && Boolean(application && job && team);
@@ -139,8 +195,10 @@ function WorkspacePage() {
       toast.error("Bitte Application, Job und Team auswählen.");
       return;
     }
-    if (selectedQuestions.length === 0 || selectedQuestions.length > 6) {
-      toast.error("Bitte 1 bis 6 Fragen für den Steckbrief auswählen.");
+    if (selectedQuestions.length !== 8) {
+      toast.error(
+        "Bitte genau 8 Fragen auswählen: 4 technische/job-spezifische, 2 Soft Skill, 2 Team/Culture.",
+      );
       return;
     }
 
@@ -151,7 +209,7 @@ function WorkspacePage() {
         team,
         summaryText,
         questions: selectedQuestions,
-        openRisks,
+        openRisks: risksWithCvGap,
         interviewGuide,
       });
       toast.success(`PDF exportiert: ${fileName}`);
@@ -303,6 +361,47 @@ function WorkspacePage() {
           </footer>
         </section>
 
+        <details className="rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
+                <FileCode2 className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Prompt fuer Interviewleitfaden
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Editierbar; Soft Skills und CV-Luecken bleiben explizit im Auftrag.
+                </p>
+              </div>
+            </div>
+            <StatusPill tone={promptEdited ? "warning" : "info"}>
+              {promptEdited ? "angepasst" : "Standard"}
+            </StatusPill>
+          </summary>
+          <div className="border-t border-border p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground max-w-3xl">
+                Dieser Prompt steuert die Erstellung des Onepagers. Aendere ihn bei Bedarf vor dem
+                Erzeugen des Interviewleitfadens.
+              </p>
+              <Button variant="outline" size="sm" onClick={resetPrompt}>
+                <RotateCcw className="h-4 w-4 mr-2" /> Zuruecksetzen
+              </Button>
+            </div>
+            <Textarea
+              value={promptText}
+              onChange={(event) => {
+                setPromptText(event.target.value);
+                setPromptEdited(true);
+              }}
+              rows={16}
+              className="mt-4 bg-background/80 font-mono text-xs leading-relaxed"
+            />
+          </div>
+        </details>
+
         {!generated && !loading && (
           <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
             <p className="text-sm text-muted-foreground">
@@ -364,7 +463,7 @@ function WorkspacePage() {
               </SectionCard>
               <SectionCard icon={AlertTriangle} title="Zu verifizieren" tone="warning">
                 <ul className="space-y-2.5">
-                  {openRisks.map((s) => (
+                  {risksWithCvGap.map((s) => (
                     <li key={s} className="flex gap-2 text-sm text-foreground">
                       <AlertTriangle className="h-4 w-4 text-warning-foreground shrink-0 mt-0.5" />
                       <span>{s}</span>
@@ -401,25 +500,23 @@ function WorkspacePage() {
               </ol>
             </SectionCard>
 
-            {/* D Top 10 questions */}
+            {/* D Prioritized questions */}
             <SectionCard
               icon={MessageSquare}
-              title="Top 10 personalisierte Fragen"
+              title="Priorisierte Interviewfragen"
               subtitle="KI-Vorauswahl für den Interview-Steckbrief"
             >
               <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <p className="text-xs text-muted-foreground max-w-2xl">
                   Das Tool priorisiert Fragen aus Rolle, Team, Stage-1-Kommentaren und
-                  Metafinanz-Zukunftskompetenzen. Für den Onepager sind maximal 6 Fragen vorgesehen.
+                  Metafinanz-Zukunftskompetenzen. Fuer den Onepager sind genau 8 Fragen
+                  vorgesehen: 4 technische/job-spezifische, 2 Soft-Skill- und 2
+                  Team-/Culture-Fit-Fragen. CV-Luecken bleiben im Risikocheck sichtbar.
                 </p>
                 <StatusPill
-                  tone={
-                    selectedQuestions.length > 6 || selectedQuestions.length === 0
-                      ? "warning"
-                      : "success"
-                  }
+                  tone={selectedQuestions.length === 8 ? "success" : "warning"}
                 >
-                  {selectedQuestions.length}/6 ausgewählt
+                  {selectedQuestions.length}/8 ausgewählt
                 </StatusPill>
               </div>
               <div className="grid md:grid-cols-2 gap-3">
