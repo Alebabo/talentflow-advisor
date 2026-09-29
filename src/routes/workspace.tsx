@@ -11,6 +11,7 @@ import { exportInterviewSummaryPdf } from "@/lib/pdf-export";
 import { readLastUploadedApplicationId, useApplications } from "@/lib/application-storage";
 import { buildInterviewOnepagerPromptContext } from "@/lib/interview-master-prompt";
 import { generateInterviewOnepager } from "@/lib/openai-onepager";
+import { maskInterviewPrompt } from "@/lib/prompt-privacy";
 import {
   createCvGapReviewText,
   createInterviewSummaryText,
@@ -169,7 +170,9 @@ function WorkspacePage() {
     setLoading(true);
     setGenerated(false);
     try {
-      const result = await generateOnepager({ data: { prompt: promptText } });
+      const result = await generateOnepager({
+        data: { prompt: maskInterviewPrompt(promptText, application) },
+      });
       setSummaryText(result.text);
       toast.success("Interviewleitfaden mit OpenAI aktualisiert.");
     } catch (error) {
@@ -383,6 +386,9 @@ function WorkspacePage() {
               <p className="text-xs text-muted-foreground max-w-3xl">
                 Dieser Prompt steuert die Erstellung des Onepagers. Aendere ihn bei Bedarf vor dem
                 Erzeugen des Interviewleitfadens.
+                {" "}Bekannte Kandidatennamen, Kontaktangaben und erkennbare Adressen werden vor
+                dem Versand maskiert. Freitext kann weitere personenbezogene Angaben enthalten:
+                bitte vor dem Erzeugen prüfen. Das Originalprofil bleibt lokal gespeichert.
               </p>
               <Button variant="outline" size="sm" onClick={resetPrompt}>
                 <RotateCcw className="h-4 w-4 mr-2" /> Zuruecksetzen

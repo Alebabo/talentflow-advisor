@@ -1,4 +1,5 @@
 import type { Application, GuidePhase, Job, Question, Team } from "@/lib/mock-data";
+import { maskInterviewPrompt } from "@/lib/prompt-privacy";
 
 export const INTERVIEW_ONEPAGER_MASTER_PROMPT_VERSION = "interview-onepager-v3";
 
@@ -69,7 +70,7 @@ export function buildInterviewOnepagerPromptContext({
   questions,
   openRisks,
 }: InterviewOnepagerPromptContext) {
-  return [
+  const prompt = [
     INTERVIEW_ONEPAGER_MASTER_PROMPT,
     "",
     "Eingabedaten:",
@@ -113,4 +114,5 @@ export function buildInterviewOnepagerPromptContext({
       2,
     ),
   ].join("\n");
+  return maskInterviewPrompt(prompt, application);
 }

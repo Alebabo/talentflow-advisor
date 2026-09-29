@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { maskInterviewPrompt } from "@/lib/prompt-privacy";
 
 type GenerateOnepagerInput = {
   prompt: string;
@@ -30,9 +31,10 @@ function parseGenerateOnepagerInput(input: unknown): GenerateOnepagerInput {
 
   const prompt = (input as GenerateOnepagerInput).prompt.trim();
   if (prompt.length < 20) throw new Error("Prompt ist zu kurz.");
+  if (prompt.length > 28_000) throw new Error("Prompt ist zu lang (maximal 28.000 Zeichen).");
 
   return {
-    prompt: prompt.slice(0, 28_000),
+    prompt: maskInterviewPrompt(prompt),
   };
 }
 
@@ -64,6 +66,7 @@ export const generateInterviewOnepager = createServerFn({ method: "POST" })
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
+        store: false,
         input: [
           {
             role: "system",
@@ -80,8 +83,8 @@ export const generateInterviewOnepager = createServerFn({ method: "POST" })
     });
 
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`OpenAI Anfrage fehlgeschlagen (${response.status}): ${message.slice(0, 300)}`);
+      // Provider errors may echo submitted text. Do not expose their body.
+      throw new Error(`OpenAI Anfrage fehlgeschlagen (${response.status}).`);
     }
 
     const result = (await response.json()) as OpenAIResponsesResult;

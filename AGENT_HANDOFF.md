@@ -89,13 +89,13 @@ Der relevante Server-Call ist eine TanStack Start Server Function:
 - Validierung:
   - `prompt` muss String sein.
   - getrimmte Laenge mindestens 20 Zeichen.
-  - Prompt wird auf 28.000 Zeichen begrenzt.
+  - Prompts mit mehr als 28.000 Zeichen werden abgelehnt, nicht abgeschnitten.
 - Output: `{ text: string }`
 - Fehler:
   - `OPENAI_API_KEY ist serverseitig nicht gesetzt.`
   - `Prompt fehlt.`
   - `Prompt ist zu kurz.`
-  - OpenAI-HTTP-Fehler werden mit Status und gekuerztem Body weitergegeben.
+  - OpenAI-HTTP-Fehler werden nur mit Status weitergegeben, damit ein eventuell personenbezogener Fehlerbody nicht angezeigt wird.
 
 Externer API-Call der Server Function:
 
@@ -103,6 +103,7 @@ Externer API-Call der Server Function:
 - Model: `gpt-4.1-mini`
 - Auth: `Authorization: Bearer ${OPENAI_API_KEY}`
 - `max_output_tokens`: 700
+- `store`: false
 - Erwartung: kurze Stichpunkte fuer den Abschnitt `Gespraechsfokus`.
 
 Wichtig: Die Funktion gibt aktuell nur kompakten Text zurueck und speichert nichts serverseitig.
@@ -266,3 +267,13 @@ Implementierung: `src/lib/pdf-export.ts`
 - OpenAI-Konfiguration zentralisieren: Modell, Tokenlimit, Systemprompt-Version.
 - UI-only Buttons entweder deaktivieren/kennzeichnen oder implementieren.
 - Einen echten API-/Persistence-Layer einfuehren, falls die App ueber Demo-Daten hinausgehen soll.
+
+## Prompt-Maskierung (2026-09-29)
+
+`src/lib/prompt-privacy.ts` maskiert bekannte Kandidatennamen, Namensteile ab drei Zeichen und den bekannten Standort. Regex-Muster ersetzen E-Mail-Adressen, verbreitete Telefonnummern, Weblinks, IBANs, vollstaendige numerische Datumsangaben sowie erkennbare deutsche Strassenadressen und Postleitzahl-Ort-Kombinationen durch Platzhalter.
+
+Der Standardprompt wird bereits maskiert angezeigt. Beim Generieren werden auch manuelle Aenderungen im Browser erneut maskiert. Die Server Function maskiert jeden angenommenen Prompt nochmals vor dem OpenAI-Aufruf. Bei einem unveraenderten, strukturierten Kandidatenblock kann sie Name und Standort selbst auslesen. Fehlerantworten des Anbieters werden nicht an den Client weitergereicht.
+
+Dies ist eine heuristische Maskierung, keine garantierte Anonymisierung. Unbekannte Personen in Freitext, abweichende Schreibweisen, nicht erkannte Adressformate und indirekt identifizierende berufliche Details koennen erhalten bleiben. Freitext muss vor der Generierung geprueft werden. Originalprofile bleiben unveraendert im lokalen Browser-Speicher; der PDF-Export verwendet weiterhin das Originalprofil. `store: false` ist keine Zusicherung einer vollstaendigen Datenloeschung beim Anbieter.
+
+Regressionstests ohne echte API-Aufrufe: `node --test scripts/test-prompt-privacy.mjs`. Zusaetzliche Checks: `npx tsc --noEmit` und `npm run build`.
